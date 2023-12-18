@@ -1,27 +1,32 @@
 # Brief 
 
-对比市面上常见的闪电贷协议，横向对比他们的不同，并且用Foundry做使用Demo
+对比市面上常见的闪电贷协议，横向对比他们的不同，并且用Foundry做使用Demo。
 
 ## comparisons
 
-|             | 闪电贷名字 | 回调函数名字             | 借款   | 还款         | 还款指标 |
-| ----------- | ---------- | ------------------------ | ------ | ------------ | -------- |
-| uniswapV2   | swap()     | uniswapV2Call()          | 1或2种 | 1或2种       | 价值     |
-| uniswapV3   | flash()    | uniswapV3FlashCallback() | 1或2种 | 借什么还什么 | 数量     |
-| AAVE        |            |                          |        |              |          |
-| PancakeSwap |            |                          |        |              |          |
-| Compound    |            |                          |        |              |          |
-| MakerDAO    |            |                          |        |              |          |
-| dYdX        |            |                          |        |              |          |
+|             | 链   | 闪电贷名字  | 回调函数名字             | 借款       | 还款                                     | 还款指标 | 借款对象                     | 借款类型   |
+| ----------- | ---- | ----------- | ------------------------ | ---------- | ---------------------------------------- | -------- | ---------------------------- | ---------- |
+| uniswapV2   | ETH  | swap()      | uniswapV2Call()          | 1或2种     | 1或2种。transfer代币                     | 价值     | 与池子交互、借款             | ERC20      |
+| uniswapV3   | ETH  | flash()     | uniswapV3FlashCallback() | 1或2种     | 借什么还什么。transfer代币               | 数量     | 与池子交互、借款             | ERC20      |
+| AAVEV1      | ETH  | flashLoan() | executeOperation()       | 1种        | 借什么还什么。transfer代币               | 数量     | 与池子交互，向core合约借款   | ERC20, ETH |
+| AAVEV2      | ETH  | flashLoan() | executeOperation()       | 一种或多种 | 借什么还什么。approve代币/开新的债务仓位 | 数量     | 与池子交互，向aToken合约借款 | ERC20, ETH |
+| AAVEV3      | ETH  |             |                          |            |                                          |          |                              |            |
+| PancakeSwap |      |             |                          |            |                                          |          |                              |            |
+| Compound    |      |             |                          |            |                                          |          |                              |            |
+| MakerDAO    |      |             |                          |            |                                          |          |                              |            |
+| dYdX        |      |             |                          |            |                                          |          |                              |            |
 
 ## Uniswap
 
-安装依赖
+- 安装依赖
+
 
 ```
 forge install Uniswap/v2-core
 forge install Uniswap/v3-core
 ```
+
+典型的去中心化交易所(DEX)项目，支持闪电兑换业务
 
 ### v2
 
@@ -74,7 +79,10 @@ forge install Uniswap/v3-core
 
 - 信息：闪电贷叫`swap()`, 回调函数叫`uniswapV2Call()`。v2中，闪电贷被写进了swap中，如果用户之前并没有向合约转入用于交易的代币，则相当于闪电贷。
 
-- 其他：收取3/1000的手续费，这个手续费指的是借款总价值的3/1000
+- 其他：
+  - 收取3/1000的手续费，这个手续费指的是借款总价值的3/1000
+  - Uniswap有很多个池子，不同币对组成不同的池子，每个池子都可以进行闪电贷，并且只是借款池子中的资产
+
 - 使用：在[使用教程](https://github.com/chen4903/FlashLoan-Comparisons/blob/master/test/uniswap_v2.sol)中，写了四种不同的闪电贷借款还款方式，都可以通过。使用：注释并打开相应的方法，输入`forge test --match-path test/Uniswap_V2.sol -offline -vv`进行测试。
 - 结论：在UniswapV2中，闪电贷的还款逻辑是价值取向。
 
@@ -138,11 +146,227 @@ forge install Uniswap/v3-core
 
 - 信息：闪电贷叫`flash()`, 回调函数叫`uniswapV3FlashCallback()`。
 
-- 其他：手续费并不像V2那样粗暴取固定值3%，它有一套很复杂的计算逻辑，但不怕，V3已经帮我们计算好了每次调用闪电贷的手续费，他会传给回调函数。
+- 其他：
+  - 手续费并不像V2那样粗暴取固定值3%，它有一套很复杂的计算逻辑，但不怕，V3已经帮我们计算好了每次调用闪电贷的手续费，他会传给回调函数。
+  - Uniswap有很多个池子，不同币对组成不同的池子，每个池子都可以进行闪电贷，并且只是借款池子中的资产
+
 - 使用：在[使用教程](https://github.com/chen4903/FlashLoan-Comparisons/blob/master/test/Uniswap_V3.sol)中，写了2种不同的闪电贷借款还款方式，都可以通过。使用：注释并打开相应的方法，输入`forge test --match-path test/Uniswap_V3.sol -offline -vv`进行测试。
 - 结论：在UniswapV3中，闪电贷的还款逻辑是数量取向，相比于V2，其目的性更强，借什么还什么，还帮你计算了手续费，体验更好，牺牲了一点交易的灵活性是值得的。
 
 ## AAVE
+
+典型的借贷协议，支持闪电贷业务
+
+### v1
+
+```solidity
+    function flashLoan(address _receiver, address _reserve, uint256 _amount, bytes memory _params)
+        public
+        nonReentrant
+        onlyActiveReserve(_reserve)
+        onlyAmountGreaterThanZero(_amount)
+    {
+
+        // 查看AAVE池子是否有足够的钱给你闪电贷
+        // 不用getAvailableLiquidity()来查询，因为这个方法太消耗gas了
+        uint256 availableLiquidityBefore = _reserve == EthAddressLib.ethAddress()
+            ? address(core).balance
+            : IERC20(_reserve).balanceOf(address(core));
+
+        require(
+            availableLiquidityBefore >= _amount,
+            "There is not enough liquidity available to borrow"
+        );
+
+        // 闪电贷手续费
+        (uint256 totalFeeBips, uint256 protocolFeeBips) = parametersProvider
+            .getFlashLoanFeesInBips();
+        uint256 amountFee = _amount.mul(totalFeeBips).div(10000); // 协议费：0.35%
+
+        // 借款的金额太小，四舍五入导致手续费为0，则revert，因此闪电贷的金额不能太小
+        uint256 protocolFee = amountFee.mul(protocolFeeBips).div(10000); // 协议费中的手续费：30%
+        require(
+            amountFee > 0 && protocolFee > 0,
+            "The requested amount is too small for a flashLoan."
+        );
+
+        // 获取到调用闪电贷的合约实例
+        IFlashLoanReceiver receiver = IFlashLoanReceiver(_receiver);
+
+        address payable userPayable = address(uint160(_receiver));
+
+        // 转钱给调用闪电贷的合约实例
+        core.transferToUser(_reserve, userPayable, _amount);
+
+        // 调用闪电贷的合约实例 调用回调函数。合约需要在回调函数中偿还金额：借款金额+手续费
+        receiver.executeOperation(_reserve, _amount, amountFee, _params);
+
+        // 闪电贷结束之后，查看合约的资产情况
+        uint256 availableLiquidityAfter = _reserve == EthAddressLib.ethAddress()
+            ? address(core).balance
+            : IERC20(_reserve).balanceOf(address(core));
+
+        // 闪电贷结束之后的合约资产 = 闪电贷结束之前的合约资产 + 手续费
+        // V1版本非常不友好，我们必须完全精确的计算，否则交易失败
+        // 这里严格等于并不会导致DoS，因为不是用合约的变量记录资产信息，
+        // 这个方法是直接获取资产信息的，因此避免了这个问题
+        require(
+            availableLiquidityAfter == availableLiquidityBefore.add(amountFee),
+            "The actual balance of the protocol is inconsistent"
+        );
+
+        // 更新闪电贷信息
+        core.updateStateOnFlashLoan(
+            _reserve,
+            availableLiquidityBefore,
+            amountFee.sub(protocolFee),
+            protocolFee
+        );
+
+        //solium-disable-next-line
+        emit FlashLoan(_receiver, _reserve, _amount, amountFee, protocolFee, block.timestamp);
+    }
+```
+
+分析这个方法，我们可以发现：
+
+- 一次只能借一种资产，并且只能还这种资产
+- aave只有一个池子，因此大家都在这个Lending pool进行存取款、闪电贷等。但是，借的不是池子的钱，而是core合约中的钱，并且还钱也是还给core
+- 可以借款token，也可以借款ETH原生代币（当`_reserve`是`0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`）
+
+```solidity
+    function transferToUser(address _reserve, address payable _user, uint256 _amount)
+        external
+        onlyLendingPool
+    {
+        if (_reserve != EthAddressLib.ethAddress()) {
+            ERC20(_reserve).safeTransfer(_user, _amount);
+        } else {
+            //solium-disable-next-line
+            (bool result, ) = _user.call.value(_amount).gas(50000)("");
+            require(result, "Transfer of ETH failed");
+        }
+    }
+```
+
+总结：
+
+- 信息：闪电贷叫`flashLoan()`, 回调函数叫`executeOperation()`。
+
+- 其他：固定0.35%的手续费，协议费占手续费的30%
+- 使用：在使用教程中，写了借DAI的例子。使用：输入`forge test --match-path test/AAVE_v1.sol -offline -vv`进行测试。
+- 结论：在aave v1中，闪电贷的还款逻辑是数量取向
+
+### v2
+
+```solidity
+  function flashLoan(
+    address receiverAddress, // 接收借款地址，需要实现回调函数
+    address[] calldata assets, // 借什么
+    uint256[] calldata amounts, // 借多少
+    uint256[] calldata modes, // 不还款时设置的债务类型
+    						// 0 => 不设置任何债务，交易回退
+    						// 1 => 以稳定利率设置债务，债务数量为闪电贷的代币数量，债务地址为onBehalfof
+    						// 2 => 以可变利率设置债务，债务数量为闪电贷的代币数量，债务地址为onBehalfof
+    address onBehalfOf, // 债务接收地址，当modes = 1 or 2时有效
+    bytes calldata params, // 
+    uint16 referralCode // 用于注册发起操作的集成商的代码，以获得潜在奖励。如果动作由用户直接执行，没有任何中间人，则设置为0
+  ) external override whenNotPaused {
+    FlashLoanLocalVars memory vars; // 单笔闪电贷的局部变量结构
+
+    ValidationLogic.validateFlashloan(assets, amounts); // 校验长度匹配
+
+    address[] memory aTokenAddresses = new address[](assets.length); // 生息代币地址(aToken)
+    uint256[] memory premiums = new uint256[](assets.length); // ????
+
+    vars.receiver = IFlashLoanReceiver(receiverAddress); // 闪电贷代币接收地址
+
+    for (vars.i = 0; vars.i < assets.length; vars.i++) {
+      aTokenAddresses[vars.i] = _reserves[assets[vars.i]].aTokenAddress; // 标的代币assets[vars.i]对应的生息代币
+
+      premiums[vars.i] = amounts[vars.i].mul(_flashLoanPremiumTotal).div(10000); // 固定手续费 9 / 10000 = 0.09% = 0.0009
+
+	  // 闪电贷乐观转账：将标的代币从生息代币地址转账给接收地址 receiverAddress，转账数量为amounts[vars.i]
+      IAToken(aTokenAddresses[vars.i]).transferUnderlyingTo(receiverAddress, amounts[vars.i]);
+    }
+
+    require( // 执行自定义业务函数，并检查返回值是否为true
+      vars.receiver.executeOperation(assets, amounts, premiums, msg.sender, params),
+      Errors.LP_INVALID_FLASH_LOAN_EXECUTOR_RETURN
+    );
+
+    for (vars.i = 0; vars.i < assets.length; vars.i++) { // 循环遍历每一个闪电贷财产
+      vars.currentAsset = assets[vars.i]; // 闪电贷代币地址
+      vars.currentAmount = amounts[vars.i]; // 闪电贷代币数量
+      vars.currentPremium = premiums[vars.i]; // 手续费
+      vars.currentATokenAddress = aTokenAddresses[vars.i]; // 生息代币（矿池）地址
+      vars.currentAmountPlusPremium = vars.currentAmount.add(vars.currentPremium); // 闪电贷代币数量+手续费
+
+      if (DataTypes.InterestRateMode(modes[vars.i]) == DataTypes.InterestRateMode.NONE) { // modes==0
+        _reserves[vars.currentAsset].updateState(); // 更新流动性累计指数和可变的借款指数
+        _reserves[vars.currentAsset].cumulateToLiquidityIndex( // 将闪电贷手续费累积到储备金中，并在所有人之间分摊
+          IERC20(vars.currentATokenAddress).totalSupply(),
+          vars.currentPremium
+        );
+        _reserves[vars.currentAsset].updateInterestRates( // 更新利率
+          vars.currentAsset, // 待更新的储备金地址（标的代币地址）
+          vars.currentATokenAddress, // 与标的代币对应的生息代币地址（流动性）
+          vars.currentAmountPlusPremium, // 添加到协议的流动性数量（存款或偿还）
+          0 // 从协议中获取的流动性数量（赎回或借入）
+        ); // 更新储备金当前稳定借款利率，当前可变借款利率和当前流动性利率
+
+        IERC20(vars.currentAsset).safeTransferFrom( // 闪电贷还款，需要receiverAddress对aToken的授权批准
+          receiverAddress, // from：闪电贷接收地址
+          vars.currentATokenAddress, // to：生息代币地址，闪电贷的贷款来源地址
+          vars.currentAmountPlusPremium // 代币数量
+        );
+      } else {
+        // If the user chose to not return the funds, the system checks if there is enough collateral and
+        // eventually opens a debt position
+        _executeBorrow( // 若不还款，检查质押物，然后开一个债务仓位
+          ExecuteBorrowParams(
+            vars.currentAsset,
+            msg.sender,
+            onBehalfOf, // 债务接收地址
+            vars.currentAmount,
+            modes[vars.i],
+            vars.currentATokenAddress,
+            referralCode,
+            false
+          )
+        );
+      }
+      emit FlashLoan( // 出发FlashLoan事件
+        receiverAddress, // 闪电贷代币接收地址，自定义业务函数执行合约地址
+        msg.sender, // 闪电贷发起账户地址
+        vars.currentAsset, // 闪电贷代币地址
+        vars.currentAmount, // 闪电贷代币数量
+        vars.currentPremium, // 手续费
+        referralCode // 用于注册发起操作的集成商的代码，以获得潜在的奖励。如果动作由用户直接执行，没有任何中间人，则设置为0
+      );
+    }
+  }
+```
+
+分析这个方法，我们可以发现：
+
+- 一次借多种资产，并且借什么还什么
+- aave只有一个池子，因此大家都在这个Lending pool进行存取款、闪电贷等。
+- 每次都是在对应的aToken进行实际的借款：我们调用Lending_Pool进行闪电贷，然后去到aToken合约(拥有大量的Token)，然后aToken合约将Token借给你。
+- 实际的闪电贷逻辑：`Lending_Pool`使用`transferFrom()`将aToken合约的Token给你，你在回调函数中完成一系列操作：
+  - 如果mode=0：需要在闪电贷之前或者闪电贷的回调函数中`approve()`给Lending_Pool相应数量代币，然后在回调函数结束之后，Lending_Pool会`transferFrom()`你的代币进行还款
+  - 如果mode!=0：你在使用闪电贷之前，在AAVE中质押了相应的资产，并且它们是可被抵押的、价值足够，然后在回调函数结束之后，Lending_Pool会开启一个新的债务仓位
+- 可以借款token，也可以借款ETH原生代币（当`_reserve`是`0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`）
+
+总结：
+
+- 信息：闪电贷叫`flashLoan()`, 回调函数叫`executeOperation()`。
+
+- 其他：固定手续费0.09%
+- 使用：在使用教程中，写了`借USDT,WBTC，还USDT,WBTC`和`借USDT,WBTC，不还款，而是开一个新的债务仓位, modes=2`的例子。使用：输入`forge test --match-path test/AAVE_v2.sol -offline -vv`进行测试。
+- 结论：在aave v2中，闪电贷的还款逻辑是数量取向
+
+### v3
 
 
 
@@ -160,11 +384,16 @@ forge install Uniswap/v3-core
 
 ## dYdX
 
+针对专业交易者的去中心化交易所，与Uniswap属于不同的类型，闪电贷是其隐藏的功能
 
 
 
 
 
+# Summary
+
+- 在一种情况下，闪电贷使用者可以灵活偿还债务：token0或者token1的`banlanceOf()`是价值取向的，他会随着某些变量而变化，因此闪电贷使用者可以操纵这些变量，使得token0或者token1的价值变化来偿还债务。比如使用闪电贷之前池子中有10个token0，`balanceOf()`得出的结果是10，闪电贷过程中进行操纵，`balanceOf()`得出的结果是100（但仍然只有10个token0，只是价值变为100）
+- 
 
 
 

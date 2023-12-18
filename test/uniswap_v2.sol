@@ -3,13 +3,15 @@ pragma solidity ^0.8.9;
 
 import "forge-std/Test.sol";
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
-import '@uniswap/v2-core/contracts/interfaces/IERC20.sol';
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interface.sol";
 
 contract Uniswap_V2 is Test{
+    using SafeERC20 for IERC20;
+
     IUniswapV2Pair public constant pair = IUniswapV2Pair(0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852); // pair(WETH-USDT)
     IERC20 public constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IUSDT public constant USDT = IUSDT(0xdAC17F958D2ee523a2206206994597C13D831ec7); // USDT并不是标准的ERC20
+    IERC20 public constant USDT = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7); 
 
     function setUp() public {
         vm.createSelectFork("mainnet", 18_647_450);
@@ -19,7 +21,7 @@ contract Uniswap_V2 is Test{
 
         // 我们需要借，因此先准备一些钱作为手续费
         deal(address(WETH), address(this), 1 * 1e18);
-        deal(address(USDT), address(this), 1 * 1e18);
+        deal(address(USDT), address(this), 1 * 1e6);
 
         console.log("[the reserves]");
         (, uint256 token0_reserve, uint256 token1_reserve) = pair.getReserves();
@@ -31,7 +33,7 @@ contract Uniswap_V2 is Test{
 // ============================================ 借token0，还token0 =========================================================
 
     // function test_flashloan1() public {
-    //     emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), WETH.decimals());
+    //     emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
 
     //     bytes memory data = abi.encode(address(WETH), 100_000_000);
     //     // 我们需要借WETH，因此需要提前知道在这个池子中，token0和token1哪个是WETH，
@@ -42,11 +44,11 @@ contract Uniswap_V2 is Test{
     //     // 我们编码了附带的data，为了在回调函数中解析出借了哪个代币，借了多少
     //     pair.swap(100_000_000, 0, address(this), data);
 
-    //     emit log_named_decimal_uint("[After] WETH Balance", WETH.balanceOf(address(this)), WETH.decimals());
+    //     emit log_named_decimal_uint("[After] WETH Balance", WETH.balanceOf(address(this)), 18);
     // }
 
     // function uniswapV2Call(address sender, uint256 amount0, uint256 amount1, bytes calldata data) external {
-    //     emit log_named_decimal_uint("[While] WETH Balance", WETH.balanceOf(address(this)), WETH.decimals());
+    //     emit log_named_decimal_uint("[While] WETH Balance", WETH.balanceOf(address(this)), 18);
 
     //     // do anything you want
 
@@ -56,7 +58,7 @@ contract Uniswap_V2 is Test{
     //     uint paybackAmountAndFee = Amount + fee;
     //     // console.log("You borrow:", whatToBorrow);
 
-    //     WETH.transfer(msg.sender, paybackAmountAndFee);
+    //     WETH.safeTransfer(msg.sender, paybackAmountAndFee);
 
     // }
 
@@ -64,19 +66,19 @@ contract Uniswap_V2 is Test{
 
     // function test_flashloan2() public {
     //     emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
-    //     emit log_named_decimal_uint("[Before] USDT Balance", USDT.balanceOf(address(this)), 18);
+    //     emit log_named_decimal_uint("[Before] USDT Balance", USDT.balanceOf(address(this)), 6);
     //     console.log();
 
     //     bytes memory data = abi.encode(address(WETH), 100_000_000_000);
     //     pair.swap(100_000_000_000, 0, address(this), data);
 
     //     emit log_named_decimal_uint("[After] WETH Balance", WETH.balanceOf(address(this)), 18);
-    //     emit log_named_decimal_uint("[After] USDT Balance", USDT.balanceOf(address(this)), 18);
+    //     emit log_named_decimal_uint("[After] USDT Balance", USDT.balanceOf(address(this)), 6);
     // }
 
     // function uniswapV2Call(address, uint256, uint256, bytes calldata data) external {
     //     emit log_named_decimal_uint("[While] WETH Balance", WETH.balanceOf(address(this)), 18);
-    //     emit log_named_decimal_uint("[While] USDT Balance", USDT.balanceOf(address(this)), 18);
+    //     emit log_named_decimal_uint("[While] USDT Balance", USDT.balanceOf(address(this)), 6);
     //     console.log();
 
     //     // do anything you want
@@ -84,26 +86,26 @@ contract Uniswap_V2 is Test{
     //     (, uint256 Amount_usdt) = abi.decode(data, (address, uint256));
     //     // 我们借了100_000_000_000的WETH，而只需要还210的USDT作为手续费，
     //     // 说明了这个池子当中，USDT比较值钱（因为如果换 3/1000 的WETH，那么手续费远不止210）
-    //     USDT.transfer(msg.sender, 210); 
+    //     USDT.safeTransfer(msg.sender, 210); 
     // }
 
 // ============================================== 借token0和token1，还token1 =======================================================
 
     // function test_flashloan3() public {
     //     emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
-    //     emit log_named_decimal_uint("[Before] USDT Balance", USDT.balanceOf(address(this)), 18);
+    //     emit log_named_decimal_uint("[Before] USDT Balance", USDT.balanceOf(address(this)), 6);
     //     console.log();
 
     //     bytes memory data = abi.encode(address(WETH), address(USDT), 100_000_000, 200_000_000);
     //     pair.swap(100_000_000, 200_000_000, address(this), data);
 
     //     emit log_named_decimal_uint("[After] WETH Balance", WETH.balanceOf(address(this)), 18);
-    //     emit log_named_decimal_uint("[After] USDT Balance", USDT.balanceOf(address(this)), 18);
+    //     emit log_named_decimal_uint("[After] USDT Balance", USDT.balanceOf(address(this)), 6);
     // }
 
     // function uniswapV2Call(address, uint256, uint256, bytes calldata data) external {
     //     emit log_named_decimal_uint("[While] WETH Balance", WETH.balanceOf(address(this)), 18);
-    //     emit log_named_decimal_uint("[While] USDT Balance", USDT.balanceOf(address(this)), 18);
+    //     emit log_named_decimal_uint("[While] USDT Balance", USDT.balanceOf(address(this)), 6);
     //     console.log();
 
     //     // do anything you want
@@ -120,37 +122,38 @@ contract Uniswap_V2 is Test{
     //     // 我们这里设置为还WETH 0元，还USDT手续费加上借款金额。刚刚好足够手续费
     //     // （也许是碰巧吧，USDT在本例中比较值钱，一般情况下要大于USDT手续费+借款金额）
     //     WETH.transfer(msg.sender, 0);
-    //     USDT.transfer(msg.sender, paybackAmountAndFee_usdt);
+    //     USDT.safeTransfer(msg.sender, paybackAmountAndFee_usdt);
     // }
 
 // ============================================== 借token0和token1，还token0和token1 =======================================================
-    // function test_flashloan4() public {
-    //     emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
-    //     emit log_named_decimal_uint("[Before] USDT Balance", USDT.balanceOf(address(this)), 18);
-    //     console.log();
+    function test_flashloan4() public {
+        emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
+        emit log_named_decimal_uint("[Before] USDT Balance", USDT.balanceOf(address(this)), 6);
+        console.log();
 
-    //     bytes memory data = abi.encode(address(WETH), address(USDT), 100_000_000, 200_000_000);
-    //     pair.swap(100_000_000, 200_000_000, address(this), data);
+        bytes memory data = abi.encode(address(WETH), address(USDT), 100_000_000, 200_000_000);
+        pair.swap(100_000_000, 200_000_000, address(this), data);
 
-    //     emit log_named_decimal_uint("[After] WETH Balance", WETH.balanceOf(address(this)), 18);
-    //     emit log_named_decimal_uint("[After] USDT Balance", USDT.balanceOf(address(this)), 18);
-    // }
+        emit log_named_decimal_uint("[After] WETH Balance", WETH.balanceOf(address(this)), 18);
+        emit log_named_decimal_uint("[After] USDT Balance", USDT.balanceOf(address(this)), 6);
+    }
 
-    // function uniswapV2Call(address, uint256, uint256, bytes calldata data) external {
-    //     emit log_named_decimal_uint("[While] WETH Balance", WETH.balanceOf(address(this)), 18);
-    //     emit log_named_decimal_uint("[While] USDT Balance", USDT.balanceOf(address(this)), 18);
-    //     console.log();
+    function uniswapV2Call(address, uint256, uint256, bytes calldata data) external {
+        emit log_named_decimal_uint("[While] WETH Balance", WETH.balanceOf(address(this)), 18);
+        emit log_named_decimal_uint("[While] USDT Balance", USDT.balanceOf(address(this)), 6);
+        console.log();
 
-    //     // do anything you want
+        // do anything you want
 
-    //     (, , uint256 Amount_weth, uint256 Amount_usdt) = abi.decode(data, (address, address, uint256, uint256));
-    //     // 加上利息 0.3%
-    //     uint256 fee_weth = ((Amount_weth * 3) / 997) + 1;
-    //     uint256 fee_usdt = ((Amount_usdt * 3) / 997) + 1;
-    //     uint256 paybackAmountAndFee_weth = Amount_weth + fee_weth;
-    //     uint256 paybackAmountAndFee_usdt = Amount_usdt + fee_usdt;
+        (, , uint256 Amount_weth, uint256 Amount_usdt) = abi.decode(data, (address, address, uint256, uint256));
+        // 加上利息 0.3%
+        uint256 fee_weth = ((Amount_weth * 3) / 997) + 1;
+        uint256 fee_usdt = ((Amount_usdt * 3) / 997) + 1;
+        uint256 paybackAmountAndFee_weth = Amount_weth + fee_weth;
+        uint256 paybackAmountAndFee_usdt = Amount_usdt + fee_usdt;
 
-    //     WETH.transfer(msg.sender, 300_000_000);
-    //     USDT.transfer(msg.sender, paybackAmountAndFee_usdt - 1);
-    // }
+        WETH.transfer(msg.sender, 300_000_000);
+        USDT.safeTransfer(msg.sender, paybackAmountAndFee_usdt - 1);
+    }
+
 }
