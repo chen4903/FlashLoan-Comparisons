@@ -726,11 +726,50 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
 
 目前Euler已经禁止使用闪电贷了。具体哪个区块开始不可以用，可以看测试文件。目前无法使用Euler的闪电贷，但对复现以前的PoC作为学习还是很有用的。既然已经用不了了，就不做过多的分析。
 
+使用指令进行测试：`forge test --match-path test/Euler_v1.sol -vvvv`
+
 - Euler无需支付手续费：`receiver.onFlashLoan(msgSender, token, amount, 0, data) == CALLBACK_SUCCESS`，可惜他已经不能用了
 
 ## MakerDAO
 
+> MakerDAO能够生成 Dai，这是世界上第一个公正的货币和领先的去中心化稳定币。
 
+我们只讨论借DAI，借款Vat的场景太少见了
+
+```solidity
+    function flashLoan(
+        IERC3156FlashBorrower receiver,
+        address token,
+        uint256 amount,
+        bytes calldata data
+    ) external override lock returns (bool) {
+        require(token == address(dai), "DssFlash/token-unsupported");
+        require(amount <= max, "DssFlash/ceiling-exceeded");
+        require(vat.live() == 1, "DssFlash/vat-not-live");
+
+        uint256 amt = _mul(amount, RAY);
+
+        vat.suck(address(this), address(this), amt);
+        daiJoin.exit(address(receiver), amount);
+
+        emit FlashLoan(address(receiver), token, amount, 0);
+
+        require(
+            receiver.onFlashLoan(msg.sender, token, amount, 0, data) == CALLBACK_SUCCESS,
+            "DssFlash/callback-failed"
+        );
+
+        dai.transferFrom(address(receiver), address(this), amount); // 因此我们要approve还款
+        daiJoin.join(address(this), amount);
+        vat.heal(amt);
+
+        return true;
+    }
+```
+
+- 只能借款DAI就很无语
+- 使用approve的方式还款
+- 测试：`forge test --match-path test/MakerDAO.sol -vvv`
 
 ## dYdX
 

@@ -2,6 +2,136 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+interface IDAI {
+    event Approval(address indexed src, address indexed guy, uint256 wad);
+    event LogNote(
+        bytes4 indexed sig,
+        address indexed usr,
+        bytes32 indexed arg1,
+        bytes32 indexed arg2,
+        bytes data
+    ) anonymous;
+    event Transfer(address indexed src, address indexed dst, uint256 wad);
+
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
+
+    function PERMIT_TYPEHASH() external view returns (bytes32);
+
+    function allowance(address, address) external view returns (uint256);
+
+    function approve(address usr, uint256 wad) external returns (bool);
+
+    function balanceOf(address) external view returns (uint256);
+
+    function burn(address usr, uint256 wad) external;
+
+    function decimals() external view returns (uint8);
+
+    function deny(address guy) external;
+
+    function mint(address usr, uint256 wad) external;
+
+    function move(
+        address src,
+        address dst,
+        uint256 wad
+    ) external;
+
+    function name() external view returns (string memory);
+
+    function nonces(address) external view returns (uint256);
+
+    function permit(
+        address holder,
+        address spender,
+        uint256 nonce,
+        uint256 expiry,
+        bool allowed,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external;
+
+    function pull(address usr, uint256 wad) external;
+
+    function push(address usr, uint256 wad) external;
+
+    function rely(address guy) external;
+
+    function symbol() external view returns (string memory);
+
+    function totalSupply() external view returns (uint256);
+
+    function transfer(address dst, uint256 wad) external returns (bool);
+
+    function transferFrom(
+        address src,
+        address dst,
+        uint256 wad
+    ) external returns (bool);
+
+    function version() external view returns (string memory);
+
+    function wards(address) external view returns (uint256);
+}
+
+interface IDssFlash_MakerDAO {
+    event Deny(address indexed usr);
+    event File(bytes32 indexed what, uint256 data);
+    event FlashLoan(
+        address indexed receiver,
+        address token,
+        uint256 amount,
+        uint256 fee
+    );
+    event Rely(address indexed usr);
+    event VatDaiFlashLoan(
+        address indexed receiver,
+        uint256 amount,
+        uint256 fee
+    );
+
+    function CALLBACK_SUCCESS() external view returns (bytes32);
+
+    function CALLBACK_SUCCESS_VAT_DAI() external view returns (bytes32);
+
+    function dai() external view returns (address);
+
+    function daiJoin() external view returns (address);
+
+    function deny(address usr) external;
+
+    function file(bytes32 what, uint256 data) external;
+
+    function flashFee(address token, uint256 amount)
+        external
+        view
+        returns (uint256);
+
+    function flashLoan(
+        address receiver,
+        address token,
+        uint256 amount,
+        bytes memory data
+    ) external returns (bool);
+
+    function max() external view returns (uint256);
+
+    function maxFlashLoan(address token) external view returns (uint256);
+
+    function rely(address usr) external;
+
+    function vat() external view returns (address);
+
+    function vatDaiFlashLoan(
+        address receiver,
+        uint256 amount,
+        bytes memory data
+    ) external returns (bool);
+
+    function wards(address) external view returns (uint256);
+}
+
 interface IEulerFlashloan {
     function CALLBACK_SUCCESS() external view returns (bytes32);
 
@@ -837,77 +967,4 @@ interface IAAVE_V1_LendingPool {
     ) external;
 
     function swapBorrowRateMode(address _reserve) external;
-}
-
-interface IDAI {
-    event Approval(address indexed src, address indexed guy, uint256 wad);
-    event LogNote(
-        bytes4 indexed sig,
-        address indexed usr,
-        bytes32 indexed arg1,
-        bytes32 indexed arg2,
-        bytes data
-    ) anonymous;
-    event Transfer(address indexed src, address indexed dst, uint256 wad);
-
-    function DOMAIN_SEPARATOR() external view returns (bytes32);
-
-    function PERMIT_TYPEHASH() external view returns (bytes32);
-
-    function allowance(address, address) external view returns (uint256);
-
-    function approve(address usr, uint256 wad) external returns (bool);
-
-    function balanceOf(address) external view returns (uint256);
-
-    function burn(address usr, uint256 wad) external;
-
-    function decimals() external view returns (uint8);
-
-    function deny(address guy) external;
-
-    function mint(address usr, uint256 wad) external;
-
-    function move(
-        address src,
-        address dst,
-        uint256 wad
-    ) external;
-
-    function name() external view returns (string memory);
-
-    function nonces(address) external view returns (uint256);
-
-    function permit(
-        address holder,
-        address spender,
-        uint256 nonce,
-        uint256 expiry,
-        bool allowed,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
-
-    function pull(address usr, uint256 wad) external;
-
-    function push(address usr, uint256 wad) external;
-
-    function rely(address guy) external;
-
-    function symbol() external view returns (string memory);
-
-    function totalSupply() external view returns (uint256);
-
-    function transfer(address dst, uint256 wad) external returns (bool);
-
-    function transferFrom(
-        address src,
-        address dst,
-        uint256 wad
-    ) external returns (bool);
-
-    function version() external view returns (string memory);
-
-    function wards(address) external view returns (uint256);
 }
