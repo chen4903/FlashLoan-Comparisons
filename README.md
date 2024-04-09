@@ -11,6 +11,8 @@
 | AAVEV1            | ETH                                                       | flashLoan()                   | executeOperation()       | 1            | 借什么还什么。transfer代币               | 数量     | 与池子交互，向core合约借款      | ERC20/ETH |
 | AAVEV2            | ETH,AVAX,Polygon                                          | flashLoan()                   | executeOperation()       | 1/n          | 借什么还什么。approve代币/开新的债务仓位 | 数量     | 与池子交互，向aToken合约借款    | ERC20     |
 | AAVEV3            | ETH,AVAX,Base,Arb,Fant,Op, Polygon, Gnosis,Metis,Harmony, | flashLoan()/flashLoanSimple() | 两种executeOperation()   | 1/n          | 借什么还什么。approve代币/开新的债务仓位 | 数量     | 与池子交互，向aEthToken合约借款 | ERC20     |
+| SushiSwapV2       | ETH, BSC, Base, Arb, OP, Poly.....                        | swap()                        | uniswapV2Call()          | 1/2          | 1或2种。transfer代币                     | 价值(K)  | 与池子交互、借款                | ERC20     |
+| SushiSwapV3       | ETH, BSC, Base, Arb, OP, Poly.....                        | flash()                       | uniswapV3FlashCallback() | 1/2          | 借什么还什么。transfer代币               | 数量     | 与池子交互、借款                | ERC20     |
 | PancakeSwapV2     | BSC                                                       | swap()                        | pancakeCall()            | 1/2          | 1或2种。transfer代币                     | 价值(K)  | 与池子交互、借款                | ERC20     |
 | PancakeSwapV3     | BSC                                                       | flash()                       | pancakeV3FlashCallback() | 1/2          | 借什么还什么。transfer代币               | 数量     | 与池子交互、借款                | ERC20     |
 | MakerDAO          |                                                           |                               |                          |              |                                          |          |                                 |           |
@@ -20,6 +22,7 @@
 | DeFi Money Market |                                                           |                               |                          |              |                                          |          |                                 |           |
 | ETHLend           |                                                           |                               |                          |              |                                          |          |                                 |           |
 | bZx               |                                                           |                               |                          |              |                                          |          |                                 |           |
+| Balancer          |                                                           |                               |                          |              |                                          |          |                                 |           |
 
 ## Uniswap
 
@@ -645,96 +648,25 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
 - 使用：在使用教程中，写了3个例子。使用：输入`forge test --match-path test/AAVE_v3.sol -offline -vv`进行测试。
 - 结论：在aave v3中，闪电贷的还款逻辑是数量取向
 
+## SushiSwap
+
+### v2
+
+照抄uniswap V2
+
+### v3
+
+照抄uniswap V3
+
 ## PancakeSwap
 
 ### v2
 
-```solidity
-    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
-        require(amount0Out > 0 || amount1Out > 0, 'Pancake: INSUFFICIENT_OUTPUT_AMOUNT');
-        (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
-        require(amount0Out < _reserve0 && amount1Out < _reserve1, 'Pancake: INSUFFICIENT_LIQUIDITY');
-
-        uint balance0;
-        uint balance1;
-        { // scope for _token{0,1}, avoids stack too deep errors
-        address _token0 = token0;
-        address _token1 = token1;
-        require(to != _token0 && to != _token1, 'Pancake: INVALID_TO');
-        if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
-        if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
-        if (data.length > 0) IPancakeCallee(to).pancakeCall(msg.sender, amount0Out, amount1Out, data);
-        balance0 = IERC20(_token0).balanceOf(address(this));
-        balance1 = IERC20(_token1).balanceOf(address(this));
-        }
-        uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
-        uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
-        require(amount0In > 0 || amount1In > 0, 'Pancake: INSUFFICIENT_INPUT_AMOUNT');
-        { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
-        uint balance0Adjusted = (balance0.mul(10000).sub(amount0In.mul(25)));
-        uint balance1Adjusted = (balance1.mul(10000).sub(amount1In.mul(25)));
-        require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(10000**2), 'Pancake: K');
-        }
-
-        _update(balance0, balance1, _reserve0, _reserve1);
-        emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
-    }
-```
-
-分析这个方法，我们可以发现：pancakeswap V2是抄uniswap V2的
+照抄uniswap V2
 
 ### v3
 
-```solidity
-    function flash(
-        address recipient,
-        uint256 amount0,
-        uint256 amount1,
-        bytes calldata data
-    ) external override lock {
-        uint128 _liquidity = liquidity;
-        require(_liquidity > 0, 'L');
-
-        uint256 fee0 = FullMath.mulDivRoundingUp(amount0, fee, 1e6);
-        uint256 fee1 = FullMath.mulDivRoundingUp(amount1, fee, 1e6);
-        uint256 balance0Before = balance0();
-        uint256 balance1Before = balance1();
-
-        if (amount0 > 0) TransferHelper.safeTransfer(token0, recipient, amount0);
-        if (amount1 > 0) TransferHelper.safeTransfer(token1, recipient, amount1);
-
-        IPancakeV3FlashCallback(msg.sender).pancakeV3FlashCallback(fee0, fee1, data);
-
-        uint256 balance0After = balance0();
-        uint256 balance1After = balance1();
-
-        require(balance0Before.add(fee0) <= balance0After, 'F0');
-        require(balance1Before.add(fee1) <= balance1After, 'F1');
-
-        // sub is safe because we know balanceAfter is gt balanceBefore by at least fee
-        uint256 paid0 = balance0After - balance0Before;
-        uint256 paid1 = balance1After - balance1Before;
-
-        if (paid0 > 0) {
-            uint32 feeProtocol0 = slot0.feeProtocol % PROTOCOL_FEE_SP;
-            uint256 fees0 = feeProtocol0 == 0 ? 0 : (paid0 * feeProtocol0) / PROTOCOL_FEE_DENOMINATOR;
-            if (uint128(fees0) > 0) protocolFees.token0 += uint128(fees0);
-            feeGrowthGlobal0X128 += FullMath.mulDiv(paid0 - fees0, FixedPoint128.Q128, _liquidity);
-        }
-        if (paid1 > 0) {
-            uint32 feeProtocol1 = slot0.feeProtocol >> 16;
-            uint256 fees1 = feeProtocol1 == 0 ? 0 : (paid1 * feeProtocol1) / PROTOCOL_FEE_DENOMINATOR;
-            if (uint128(fees1) > 0) protocolFees.token1 += uint128(fees1);
-            feeGrowthGlobal1X128 += FullMath.mulDiv(paid1 - fees1, FixedPoint128.Q128, _liquidity);
-        }
-
-        emit Flash(msg.sender, recipient, amount0, amount1, paid0, paid1);
-    }
-```
-
-分析这个方法，我们可以发现：pancakeswap V3是抄uniswap V3的
-
-
+照抄uniswap V3
 
 ## MakerDAO
 
@@ -763,6 +695,10 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
 
 
 ## bZx
+
+
+
+## Balancer
 
 
 
