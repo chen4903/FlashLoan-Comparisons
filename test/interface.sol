@@ -2,6 +2,24 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+interface IEulerFlashloan {
+    function CALLBACK_SUCCESS() external view returns (bytes32);
+
+    function flashFee(address token, uint256) external view returns (uint256);
+
+    function flashLoan(
+        address receiver,
+        address token,
+        uint256 amount,
+        bytes memory data
+    ) external returns (bool);
+
+    function maxFlashLoan(address token) external view returns (uint256);
+
+    function onDeferredLiquidityCheck(bytes memory encodedData) external;
+}
+
+
 interface DataTypes {
     struct EModeCategory {
         uint16 ltv;

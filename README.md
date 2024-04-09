@@ -15,6 +15,7 @@
 | SushiSwapV3       | ETH, BSC, Base, Arb, OP, Poly.....                        | flash()                       | uniswapV3FlashCallback() | 1/2          | 借什么还什么。transfer代币               | 数量     | 与池子交互、借款                | ERC20     |
 | PancakeSwapV2     | BSC                                                       | swap()                        | pancakeCall()            | 1/2          | 1或2种。transfer代币                     | 价值(K)  | 与池子交互、借款                | ERC20     |
 | PancakeSwapV3     | BSC                                                       | flash()                       | pancakeV3FlashCallback() | 1/2          | 借什么还什么。transfer代币               | 数量     | 与池子交互、借款                | ERC20     |
+| Euler             | ETH                                                       | flashLoan()                   | onFlashLoan()            | 1            | 借什么还什么。approve代币                | 数量     | 闪电贷合约本身                  | ERC20     |
 | MakerDAO          |                                                           |                               |                          |              |                                          |          |                                 |           |
 | dYdX              |                                                           |                               |                          |              |                                          |          |                                 |           |
 | Nuo               |                                                           |                               |                          |              |                                          |          |                                 |           |
@@ -26,16 +27,7 @@
 
 ## Uniswap
 
-- 安装依赖
-
-
-```
-forge install Uniswap/v2-core
-forge install Uniswap/v3-core
-# Uniswap/v2-periphery
-```
-
-典型的去中心化交易所(DEX)项目，支持闪电兑换业务
+> 典型的Dex
 
 ### v2
 
@@ -164,7 +156,7 @@ forge install Uniswap/v3-core
 
 ## AAVE
 
-典型的借贷协议，支持闪电贷业务
+> 典型的借贷协议，支持闪电贷业务
 
 ### v1
 
@@ -650,16 +642,24 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
 
 ## SushiSwap
 
+> 典型的Dex
+
 ### v2
 
 照抄uniswap V2
 
+可以在[这里](https://dev.sushi.com/docs/Products/Classic%20AMM/Deployment%20Addresses)找到SushiSwap在各个链部署的地址
+
 ### v3
 
 照抄uniswap V3
+
+可以在[这里](https://dev.sushi.com/docs/Products/V3%20AMM/Periphery/Deployment%20Addresses)找到SushiSwap在各个链部署的地址
 
 ## PancakeSwap
 
+> 典型的Dex
+
 ### v2
 
 照抄uniswap V2
@@ -667,6 +667,66 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
 ### v3
 
 照抄uniswap V3
+
+## Euler
+
+> Euler是一个模块化借贷平台，使用户能够无限制地借贷和建造
+
+### v1
+
+```solidity
+    // 0x07df2ad9878F8797B4055230bbAE5C808b8259b3
+    function flashLoan(IERC3156FlashBorrower receiver, address token, uint256 amount, bytes calldata data) override external returns (bool) {
+        require(markets.underlyingToEToken(token) != address(0), "e/flash-loan/unsupported-token");
+
+        if(!_isDeferredLiquidityCheck) {
+            exec.deferLiquidityCheck(address(this), abi.encode(receiver, token, amount, data, msg.sender));
+            _isDeferredLiquidityCheck = false;
+        } else {
+            _loan(receiver, token, amount, data, msg.sender);
+        }
+        
+        return true;
+    }
+
+    function onDeferredLiquidityCheck(bytes memory encodedData) override external {
+        require(msg.sender == eulerAddress, "e/flash-loan/on-deferred-caller");
+        (IERC3156FlashBorrower receiver, address token, uint amount, bytes memory data, address msgSender) =
+            abi.decode(encodedData, (IERC3156FlashBorrower, address, uint, bytes, address));
+
+        _isDeferredLiquidityCheck = true;
+        _loan(receiver, token, amount, data, msgSender);
+
+        _exitAllMarkets();
+    }
+
+    function _loan(IERC3156FlashBorrower receiver, address token, uint256 amount, bytes memory data, address msgSender) internal {
+        DToken dToken = DToken(markets.underlyingToDToken(token));
+
+        dToken.borrow(0, amount);
+        Utils.safeTransfer(token, address(receiver), amount);
+
+        require(
+            receiver.onFlashLoan(msgSender, token, amount, 0, data) == CALLBACK_SUCCESS,
+            "e/flash-loan/callback"
+        );
+
+        Utils.safeTransferFrom(token, address(receiver), address(this), amount);
+        require(IERC20(token).balanceOf(address(this)) >= amount, 'e/flash-loan/pull-amount');
+
+        uint allowance = IERC20(token).allowance(address(this), eulerAddress);
+        if(allowance < amount) {
+            (bool success,) = token.call(abi.encodeWithSelector(IERC20(token).approve.selector, eulerAddress, type(uint).max));
+            require(success, "e/flash-loan/approve");
+        }
+
+        dToken.repay(0, amount);
+    }
+```
+
+目前Euler已经禁止使用闪电贷了。具体哪个区块开始不可以用，可以看测试文件。目前无法使用Euler的闪电贷，但对复现以前的PoC作为学习还是很有用的。既然已经用不了了，就不做过多的分析。
+
+- Euler无需支付手续费：`receiver.onFlashLoan(msgSender, token, amount, 0, data) == CALLBACK_SUCCESS`，可惜他已经不能用了
 
 ## MakerDAO
 
@@ -674,7 +734,8 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
 
 ## dYdX
 
-针对专业交易者的去中心化交易所，与Uniswap属于不同的类型，闪电贷是其隐藏的功能
+> 针对专业交易者的去中心化交易所，与Uniswap属于不同的类型，闪电贷是其隐藏的功能
+>
 
 
 
