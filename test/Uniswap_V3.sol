@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "forge-std/Test.sol";
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+
 import "./interface.sol";
 
 contract Uniswap_V3 is Test{
@@ -18,16 +18,16 @@ contract Uniswap_V3 is Test{
         vm.label(address(WETH), "WETH");
         vm.label(address(USDT), "USDT");
 
-        // 我们需要借WETH，因此先准备一些WETH作为手续费
+        // repare for some fee
         deal(address(WETH), address(this), 1 * 1e18);
         deal(address(USDT), address(this), 1 * 1e6);
 
-        // v3没有对外暴露获得reserve的方法，因此我们自己查：根据结果可知，池子中USDT更加值钱
+        // There is so interface for V3 to get the reserve, so we should check it manually
         console.log("pool WETH reserve", WETH.balanceOf(address(pool)));
         console.log("pool USDT reserve", USDT.balanceOf(address(pool)));
     }
 
-// ============================================ 借token0，还token0 =========================================================
+// ============================================ borrow token0，pay back token0 =========================================================
 
     function test_flashloan1() public {
         emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
@@ -39,18 +39,18 @@ contract Uniswap_V3 is Test{
         emit log_named_decimal_uint("[After] WETH Balance", WETH.balanceOf(address(this)), 18);
     }
 
-    function uniswapV3FlashCallback(uint256 _fee0, uint256 _fee1, bytes calldata _data) public {
+    function uniswapV3FlashCallback(uint256 _fee0, uint256, bytes calldata _data) public {
         emit log_named_decimal_uint("[While] WETH Balance", WETH.balanceOf(address(this)), 18);
         console.log();
 
         (address toBorrow, uint256 Amount) = abi.decode(_data,(address, uint256));
 
-        uint paybackAmountAndFee = Amount + _fee0; // V3中，pool合约在回调之前就将fee计算好了，然后传到回调函数的参数中
+        uint paybackAmountAndFee = Amount + _fee0; 
 
         IERC20(toBorrow).safeTransfer(msg.sender, paybackAmountAndFee);
     }
 
-// ============================================ 借token0和token1，还token0和token1 =========================================================
+// ============================================ borrow token0+token1，pay back token0+token1 =========================================================
 
     // function test_flashloan2() public {
     //     emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);

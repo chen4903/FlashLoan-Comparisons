@@ -2,7 +2,6 @@
 pragma solidity ^0.8.9;
 
 import "forge-std/Test.sol";
-import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 import "./interface.sol";
 
 contract Uniswap_V2 is Test{
@@ -18,7 +17,7 @@ contract Uniswap_V2 is Test{
         vm.label(address(WETH), "WETH");
         vm.label(address(USDT), "USDT");
 
-        // 我们需要借，因此先准备一些钱作为手续费
+        // prepare for some fee
         deal(address(WETH), address(this), 1 * 1e18);
         deal(address(USDT), address(this), 1 * 1e6);
 
@@ -29,18 +28,18 @@ contract Uniswap_V2 is Test{
         console.log();
     }
 
-// ============================================ 借token0，还token0 =========================================================
+// ============================================ borrow token0，pay back token0 =========================================================
 
     // function test_flashloan1() public {
     //     emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
 
     //     bytes memory data = abi.encode(address(WETH), 100_000_000);
-    //     // 我们需要借WETH，因此需要提前知道在这个池子中，token0和token1哪个是WETH，
-    //     // 第一个参数：本例中token0是WETH，因此第一个参数是要借出的WETH数量，我们借1_000_000；
-    //     // 第二个参数：要借的另外一个token
-    //     // 第三个参数：是借给谁；
-    //     // 第四个参数：是附带的data，可要可不要，如果写了，可以方便在回调函数中做相关处理，
-    //     // 我们编码了附带的data，为了在回调函数中解析出借了哪个代币，借了多少
+
+    //     // We want to borrow WETH, so we should know which one is WETH: token0 or token1?
+    //     // 1st: In this pool, WETH is token0, so the first parameter is WETH amount. We flashloan for 1_000_000
+    //     // 2nd: token1
+    //     // 3rd: who will receive the amount: 1_000_000
+    //     // 4th: payload, optional
     //     pair.swap(100_000_000, 0, address(this), data);
 
     //     emit log_named_decimal_uint("[After] WETH Balance", WETH.balanceOf(address(this)), 18);
@@ -52,7 +51,7 @@ contract Uniswap_V2 is Test{
     //     // do anything you want
 
     //     (address whatToBorrow, uint Amount) = abi.decode(data, (address, uint));
-    //     // 加上利息 0.3%
+    //     // fee: 0.3%
     //     uint fee = ((Amount * 3) / 997) + 1;
     //     uint paybackAmountAndFee = Amount + fee;
     //     // console.log("You borrow:", whatToBorrow);
@@ -61,7 +60,7 @@ contract Uniswap_V2 is Test{
 
     // }
 
-// ============================================== 借token0，还token1 =======================================================
+// ============================================== borrow token0，pay backtoken1 =======================================================
 
     // function test_flashloan2() public {
     //     emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
@@ -83,12 +82,10 @@ contract Uniswap_V2 is Test{
     //     // do anything you want
 
     //     (, uint256 Amount_usdt) = abi.decode(data, (address, uint256));
-    //     // 我们借了100_000_000_000的WETH，而只需要还210的USDT作为手续费，
-    //     // 说明了这个池子当中，USDT比较值钱（因为如果换 3/1000 的WETH，那么手续费远不止210）
     //     USDT.safeTransfer(msg.sender, 210); 
     // }
 
-// ============================================== 借token0和token1，还token1 =======================================================
+// ============================================== borrow token0和token1，pay back token1 =======================================================
 
     // function test_flashloan3() public {
     //     emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
@@ -110,21 +107,19 @@ contract Uniswap_V2 is Test{
     //     // do anything you want
 
     //     (, , uint256 Amount_weth, uint256 Amount_usdt) = abi.decode(data, (address, address, uint256, uint256));
-    //     // 加上利息 0.3%
+    //     // fee: 0.3%
     //     uint256 fee_weth = ((Amount_weth * 3) / 997) + 1;
     //     uint256 fee_usdt = ((Amount_usdt * 3) / 997) + 1;
     //     uint256 paybackAmountAndFee_weth = Amount_weth + fee_weth;
     //     uint256 paybackAmountAndFee_usdt = Amount_usdt + fee_usdt;
 
     //     // WETH.transfer(msg.sender, paybackAmountAndFee_weth);
-    //     // 我们并不需要两种代币都还手续费，只要我们交易前后的K值大于等于之前的K值，就可以通过，
-    //     // 我们这里设置为还WETH 0元，还USDT手续费加上借款金额。刚刚好足够手续费
-    //     // （也许是碰巧吧，USDT在本例中比较值钱，一般情况下要大于USDT手续费+借款金额）
+    //     // In the example, USDT is valuable. If we decrease the amount of USDT, we should increase some WETH
     //     WETH.transfer(msg.sender, 0);
     //     USDT.safeTransfer(msg.sender, paybackAmountAndFee_usdt);
     // }
 
-// ============================================== 借token0和token1，还token0和token1 =======================================================
+// ============================================== borrow token0+token1，pay back token0+token1 =======================================================
     function test_flashloan4() public {
         emit log_named_decimal_uint("[Before] WETH Balance", WETH.balanceOf(address(this)), 18);
         emit log_named_decimal_uint("[Before] USDT Balance", USDT.balanceOf(address(this)), 6);
@@ -144,11 +139,11 @@ contract Uniswap_V2 is Test{
 
         // do anything you want
 
-        (, , uint256 Amount_weth, uint256 Amount_usdt) = abi.decode(data, (address, address, uint256, uint256));
-        // 加上利息 0.3%
-        uint256 fee_weth = ((Amount_weth * 3) / 997) + 1;
+        (, , , uint256 Amount_usdt) = abi.decode(data, (address, address, uint256, uint256));
+        // fee: 0.3%
+        // uint256 fee_weth = ((Amount_weth * 3) / 997) + 1;
         uint256 fee_usdt = ((Amount_usdt * 3) / 997) + 1;
-        uint256 paybackAmountAndFee_weth = Amount_weth + fee_weth;
+        // uint256 paybackAmountAndFee_weth = Amount_weth + fee_weth;
         uint256 paybackAmountAndFee_usdt = Amount_usdt + fee_usdt;
 
         WETH.transfer(msg.sender, 300_000_000);

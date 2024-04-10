@@ -1,33 +1,33 @@
 # Brief 
 
-Compare the common FlashLoan protocols, horizontally compare their differences, and make a demo of their usage.
+Compare the common FlashLoan protocols, horizontally compare their differences, and make a demo of their usage by Foundry.
 
 ## comparisons
 
-|                   | 链                                                        | 闪电贷名字                    | 回调函数名字             | 借款数量(种) | 还款                                     | 还款指标 | 借款对象                        | 借款类型  |
-| ----------------- | --------------------------------------------------------- | ----------------------------- | ------------------------ | ------------ | ---------------------------------------- | -------- | ------------------------------- | --------- |
-| uniswapV2         | ETH                                                       | swap()                        | uniswapV2Call()          | 1/2          | 1或2种。transfer代币                     | 价值(K)  | 与池子交互、借款                | ERC20     |
-| uniswapV3         | ETH                                                       | flash()                       | uniswapV3FlashCallback() | 1/2          | 借什么还什么。transfer代币               | 数量     | 与池子交互、借款                | ERC20     |
-| AAVEV1            | ETH                                                       | flashLoan()                   | executeOperation()       | 1            | 借什么还什么。transfer代币               | 数量     | 与池子交互，向core合约借款      | ERC20/ETH |
-| AAVEV2            | ETH,AVAX,Polygon                                          | flashLoan()                   | executeOperation()       | 1/n          | 借什么还什么。approve代币/开新的债务仓位 | 数量     | 与池子交互，向aToken合约借款    | ERC20     |
-| AAVEV3            | ETH,AVAX,Base,Arb,Fant,Op, Polygon, Gnosis,Metis,Harmony, | flashLoan()/flashLoanSimple() | 两种executeOperation()   | 1/n          | 借什么还什么。approve代币/开新的债务仓位 | 数量     | 与池子交互，向aEthToken合约借款 | ERC20     |
-| SushiSwapV2       | ETH, BSC, Base, Arb, OP, Poly.....                        | swap()                        | uniswapV2Call()          | 1/2          | 1或2种。transfer代币                     | 价值(K)  | 与池子交互、借款                | ERC20     |
-| SushiSwapV3       | ETH, BSC, Base, Arb, OP, Poly.....                        | flash()                       | uniswapV3FlashCallback() | 1/2          | 借什么还什么。transfer代币               | 数量     | 与池子交互、借款                | ERC20     |
-| PancakeSwapV2     | BSC                                                       | swap()                        | pancakeCall()            | 1/2          | 1或2种。transfer代币                     | 价值(K)  | 与池子交互、借款                | ERC20     |
-| PancakeSwapV3     | BSC                                                       | flash()                       | pancakeV3FlashCallback() | 1/2          | 借什么还什么。transfer代币               | 数量     | 与池子交互、借款                | ERC20     |
-| Euler             | ETH                                                       | flashLoan()                   | onFlashLoan()            | 1            | 借什么还什么。approve代币                | 数量     | 闪电贷合约本身                  | ERC20     |
-| MakerDAO          | ETH                                                       | flashLoan()                   | onFlashLoan()            | DAI          | 只能借DAI。approve代币                   | 数量     | DssFlash合约本身                | DAI       |
-| dYdX              |                                                           |                               |                          |              |                                          |          |                                 |           |
-| Nuo               |                                                           |                               |                          |              |                                          |          |                                 |           |
-| Fulcrum           |                                                           |                               |                          |              |                                          |          |                                 |           |
-| DeFi Money Market |                                                           |                               |                          |              |                                          |          |                                 |           |
-| ETHLend           |                                                           |                               |                          |              |                                          |          |                                 |           |
-| bZx               |                                                           |                               |                          |              |                                          |          |                                 |           |
-| Balancer          |                                                           |                               |                          |              |                                          |          |                                 |           |
+|                   | Chain                                                     | FlashLoan Name                | Callback Name            | Asset kinds per FlashLoan | Pay back                                                     | Repayment indicators | Pay back obj                                           | Pay back type |
+| ----------------- | --------------------------------------------------------- | ----------------------------- | ------------------------ | ------------------------- | ------------------------------------------------------------ | -------------------- | ------------------------------------------------------ | ------------- |
+| uniswapV2         | ETH                                                       | swap()                        | uniswapV2Call()          | 1/2                       | 1/2 . transfer token                                         | Value(K)             | Interact with pool                                     | ERC20         |
+| uniswapV3         | ETH                                                       | flash()                       | uniswapV3FlashCallback() | 1/2                       | Pay back what you flashloan. transfer token                  | Amount               | Interact with pool                                     | ERC20         |
+| AAVEV1            | ETH                                                       | flashLoan()                   | executeOperation()       | 1                         | Pay back what you flashloan. transfer token                  | Amount               | Interact with pool, but borrow from core contract      | ERC20/ETH     |
+| AAVEV2            | ETH,AVAX,Polygon                                          | flashLoan()                   | executeOperation()       | 1/n                       | Pay back what you flashloan. approve token/Create a new debt positions | Amount               | Interact with pool, but borrow from aToken contract    | ERC20         |
+| AAVEV3            | ETH,AVAX,Base,Arb,Fant,Op, Polygon, Gnosis,Metis,Harmony, | flashLoan()/flashLoanSimple() | 两种executeOperation()   | 1/n                       | Pay back what you flashloan. approve token/Create a new debt positions | Amount               | Interact with pool, but borrow from aEthToken contract | ERC20         |
+| SushiSwapV2       | ETH, BSC, Base, Arb, OP, Poly.....                        | swap()                        | uniswapV2Call()          | 1/2                       | 1/2. transfer token                                          | Value(K)             | Interact with pool                                     | ERC20         |
+| SushiSwapV3       | ETH, BSC, Base, Arb, OP, Poly.....                        | flash()                       | uniswapV3FlashCallback() | 1/2                       | Pay back what you flashloan.  transfer token                 | Amount               | Interact with pool                                     | ERC20         |
+| PancakeSwapV2     | BSC                                                       | swap()                        | pancakeCall()            | 1/2                       | 1/2. transfer token                                          | Value(K)             | Interact with pool                                     | ERC20         |
+| PancakeSwapV3     | BSC                                                       | flash()                       | pancakeV3FlashCallback() | 1/2                       | Pay back what you flashloan. transfer token                  | Amount               | Interact with pool                                     | ERC20         |
+| Euler             | ETH                                                       | flashLoan()                   | onFlashLoan()            | 1                         | Pay back what you flashloan. approve token                   | Amount               | The contract itself                                    | ERC20         |
+| MakerDAO          | ETH                                                       | flashLoan()                   | onFlashLoan()            | DAI                       | Only DAI。approve DAI                                        | Amount               | The contract itself                                    | DAI           |
+| dYdX              |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
+| Nuo               |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
+| Fulcrum           |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
+| DeFi Money Market |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
+| ETHLend           |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
+| bZx               |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
+| Balancer          |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
 
 ## Uniswap
 
-> 典型的Dex
+> Dex
 
 ### v2
 
@@ -45,7 +45,7 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
         require(to != _token0 && to != _token1, 'UniswapV2: INVALID_TO');
         if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
         if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
-        // 如果使用闪电贷，则需要在自定义的uniswapV2Call方法中将借出的代币归还。
+        // If you want to call as flashloan, you should pay back in uniswapV2Call
         if (data.length > 0) IUniswapV2Callee(to).uniswapV2Call(msg.sender, amount0Out, amount1Out, data);
         balance0 = IERC20(_token0).balanceOf(address(this));
         balance1 = IERC20(_token1).balanceOf(address(this));
@@ -56,36 +56,26 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
         { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
         uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
         uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
-        // 由于在swap方法最后会检查余额（扣掉手续费后）符合k恒等式约束（参考白皮书公式），因此合约可以先将用户希望获得的代币转出，
-        // 新的K值必须大于等于之前的K值，理论上由于手续费，K值会不断变大
-        require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 'UniswapV2: K'); // 校验K值
+		
+        require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 'UniswapV2: K'); // check K
         }
 
-        _update(balance0, balance1, _reserve0, _reserve1); // 使用缓存余额更新价格预言机所需的累计价格，最后更新缓存余额为当前余额。
+        _update(balance0, balance1, _reserve0, _reserve1); 
         emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
     }
 ```
 
-分析这个方法，我们可以发现：
+- The `require()` only check the `K` equal or larger than before, so we have 6 strategies as long as we guarantee the `K`:
+  - borrow token0, pay back token0
+  - borrow token0, pay back token1
+  - borrow token1, pay back token0
+  - borrow token0, pay back token1
+  - borrow token0, pay back token0 and token 1
+  - borrow token1, pay back token0 and token 1
 
-- 最后的`require()`只检查了K值是否大于等于之前的K值，这就意味着，无论我们怎么借、还，只要K值满足条件，都可以调用成功。这就意味着我们可以有多种借款、还款方案：
-  - 借token0，还token0
-  - 借token0，还token1
-  - 借token0和token1，还token1
-  - 借token0和token1，还token0和token1
-  - 等等...
-- 这就让我们有很大的灵活性：我们可以选择还任意的token，只要他的`价值`足够，比如：你借出了token0和token1，你可以选择还1000`token0`，或者还10`token1`，或者120`token0`+4`token1`。
+- fee: 0.3%
 
-总结：
-
-- 信息：闪电贷叫`swap()`, 回调函数叫`uniswapV2Call()`。v2中，闪电贷被写进了swap中，如果用户之前并没有向合约转入用于交易的代币，则相当于闪电贷。
-
-- 其他：
-  - 收取3/1000的手续费，这个手续费指的是借款总价值的3/1000
-  - Uniswap有很多个池子，不同币对组成不同的池子，每个池子都可以进行闪电贷，并且只是借款池子中的资产
-
-- 使用：在[使用教程](https://github.com/chen4903/FlashLoan-Comparisons/blob/master/test/uniswap_v2.sol)中，写了四种不同的闪电贷借款还款方式，都可以通过。使用：注释并打开相应的方法，输入`forge test --match-path test/Uniswap_V2.sol -offline -vv`进行测试。
-- 结论：在UniswapV2中，闪电贷的还款逻辑是价值取向。
+- test: `forge test --match-path test/Uniswap_V2.sol -offline -vv`
 
 ### v3
 
@@ -136,27 +126,13 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
     }
 ```
 
-分析这个方法，我们可以发现：
+- fee: We don't need to calculate it by ourselves, because it will be flow to the parameters to the callback.
 
-- 第2、3个`require()`限制了池子交易前后的每个token的数量不得减少，这就意味着我们借什么，就得还什么，因此只有三种方案：
-  - 借token0，还token0
-  - 借token1，还token1
-  - 借token0和token1，还token0和token1
-
-总结：
-
-- 信息：闪电贷叫`flash()`, 回调函数叫`uniswapV3FlashCallback()`。
-
-- 其他：
-  - 手续费并不像V2那样粗暴取固定值3%，它有一套很复杂的计算逻辑，但不怕，V3已经帮我们计算好了每次调用闪电贷的手续费，他会传给回调函数。
-  - Uniswap有很多个池子，不同币对组成不同的池子，每个池子都可以进行闪电贷，并且只是借款池子中的资产
-
-- 使用：在[使用教程](https://github.com/chen4903/FlashLoan-Comparisons/blob/master/test/Uniswap_V3.sol)中，写了2种不同的闪电贷借款还款方式，都可以通过。使用：注释并打开相应的方法，输入`forge test --match-path test/Uniswap_V3.sol -offline -vv`进行测试。
-- 结论：在UniswapV3中，闪电贷的还款逻辑是数量取向，相比于V2，其目的性更强，借什么还什么，还帮你计算了手续费，体验更好，牺牲了一点交易的灵活性是值得的。
+- test: `forge test --match-path test/Uniswap_V3.sol -offline -vv`
 
 ## AAVE
 
-> 典型的借贷协议，支持闪电贷业务
+> Lending protocol
 
 ### v1
 
@@ -168,8 +144,7 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
         onlyAmountGreaterThanZero(_amount)
     {
 
-        // 查看AAVE池子是否有足够的钱给你闪电贷
-        // 不用getAvailableLiquidity()来查询，因为这个方法太消耗gas了
+        // Check if AAVE Pool has enough money
         uint256 availableLiquidityBefore = _reserve == EthAddressLib.ethAddress()
             ? address(core).balance
             : IERC20(_reserve).balanceOf(address(core));
@@ -179,44 +154,39 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
             "There is not enough liquidity available to borrow"
         );
 
-        // 闪电贷手续费
+        // fee
         (uint256 totalFeeBips, uint256 protocolFeeBips) = parametersProvider
             .getFlashLoanFeesInBips();
         uint256 amountFee = _amount.mul(totalFeeBips).div(10000); // 协议费：0.35%
 
-        // 借款的金额太小，四舍五入导致手续费为0，则revert，因此闪电贷的金额不能太小
-        uint256 protocolFee = amountFee.mul(protocolFeeBips).div(10000); // 协议费中的手续费：30%
+        // If the loan amount is too small and rounding results in a handling fee of 0, 
+        // it will be revert. Therefore, the amount of FlashLoan cannot be too small
+        uint256 protocolFee = amountFee.mul(protocolFeeBips).div(10000); // fee of protocol：30%
         require(
             amountFee > 0 && protocolFee > 0,
             "The requested amount is too small for a flashLoan."
         );
 
-        // 获取到调用闪电贷的合约实例
         IFlashLoanReceiver receiver = IFlashLoanReceiver(_receiver);
 
         address payable userPayable = address(uint160(_receiver));
 
-        // 转钱给调用闪电贷的合约实例
         core.transferToUser(_reserve, userPayable, _amount);
 
-        // 调用闪电贷的合约实例 调用回调函数。合约需要在回调函数中偿还金额：借款金额+手续费
+        // go to the callback
         receiver.executeOperation(_reserve, _amount, amountFee, _params);
 
-        // 闪电贷结束之后，查看合约的资产情况
+        // check the balance
         uint256 availableLiquidityAfter = _reserve == EthAddressLib.ethAddress()
             ? address(core).balance
             : IERC20(_reserve).balanceOf(address(core));
 
-        // 闪电贷结束之后的合约资产 = 闪电贷结束之前的合约资产 + 手续费
-        // V1版本非常不友好，我们必须完全精确的计算，否则交易失败
-        // 这里严格等于并不会导致DoS，因为不是用合约的变量记录资产信息，
-        // 这个方法是直接获取资产信息的，因此避免了这个问题
+        // The V1 version is very unfriendly。 We must calculate completely accurately, otherwise the transaction will fail
         require(
             availableLiquidityAfter == availableLiquidityBefore.add(amountFee),
             "The actual balance of the protocol is inconsistent"
         );
 
-        // 更新闪电贷信息
         core.updateStateOnFlashLoan(
             _reserve,
             availableLiquidityBefore,
@@ -229,11 +199,8 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
     }
 ```
 
-分析这个方法，我们可以发现：
-
-- 一次只能借一种资产，并且只能还这种资产
-- aave只有一个池子，因此大家都在这个Lending pool进行存取款、闪电贷等。但是，借的不是池子的钱，而是core合约中的钱，并且还钱也是还给core
-- 可以借款token，也可以借款ETH原生代币（当`_reserve`是`0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`）
+- Only one pool in AAVE v1,everyone interacts with it. But we flashloan money from core contract but not pool contract.
+- When the `_reserve` is `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`, we will flashloan for ETH.
 
 ```solidity
     function transferToUser(address _reserve, address payable _user, uint256 _amount)
@@ -250,13 +217,9 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
     }
 ```
 
-总结：
+- fee: 0.35% total,30% of it is protocol fee.
 
-- 信息：闪电贷叫`flashLoan()`, 回调函数叫`executeOperation()`。
-
-- 其他：固定0.35%的手续费，协议费占手续费的30%
-- 使用：在使用教程中，写了借DAI的例子。使用：输入`forge test --match-path test/AAVE_v1.sol -offline -vv`进行测试。
-- 结论：在aave v1中，闪电贷的还款逻辑是数量取向
+- test: `forge test --match-path test/AAVE_v1.sol -offline -vv`
 
 ### v2
 
@@ -349,27 +312,18 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
   }
 ```
 
-分析这个方法，我们可以发现：
+- Only one pool in AAVE v2,everyone interacts with it. And than we will flashloan from aToken contract.
+- The flashloan logic: `Pool` use `transferFrom()` to send you the token from aToken contract.
+  - mode = 0: you should approve to the `pool`, so `pool` can call `transferFrom()` to catch your payback.
+  - mode = 0: Create a new debt positions
 
-- 一次借多种资产，并且借什么还什么
-- aave只有一个池子，因此大家都在这个Lending pool进行存取款、闪电贷等。
-- 每次都是在对应的aToken进行实际的借款：我们调用Lending_Pool进行闪电贷，然后去到aToken合约(拥有大量的Token)，然后aToken合约将Token借给你。
-- 实际的闪电贷逻辑：`Lending_Pool`使用`transferFrom()`将aToken合约的Token给你，你在回调函数中完成一系列操作：
-  - 如果mode=0：需要在闪电贷之前或者闪电贷的回调函数中`approve()`给Lending_Pool相应数量代币，然后在回调函数结束之后，Lending_Pool会`transferFrom()`你的代币进行还款
-  - 如果mode!=0：你在使用闪电贷之前，在AAVE中质押了相应的资产，并且它们是可被抵押的、价值足够，然后在回调函数结束之后，Lending_Pool会开启一个新的债务仓位
-- 不支持闪电贷ETH
-
-总结：
-
-- 信息：闪电贷叫`flashLoan()`, 回调函数叫`executeOperation()`。
-
-- 其他：固定手续费0.09%
-- 使用：在使用教程中，写了`借USDT,WBTC，还USDT,WBTC`和`借USDT,WBTC，不还款，而是开一个新的债务仓位, modes=2`的例子。使用：输入`forge test --match-path test/AAVE_v2.sol -offline -vv`进行测试。
-- 结论：在aave v2中，闪电贷的还款逻辑是数量取向
+- Not support flashloan for ETH anymore.
+- fee: 0.09%
+- test: `forge test --match-path test/AAVE_v2.sol -offline -vv`
 
 ### v3
 
-V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电贷一种资产：
+There are two flashloan in V3: one is for batchFlashloan, one is for singleFlashloan
 
 ```solidity
   function flashLoan(
@@ -429,7 +383,7 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
   }
 ```
 
-执行闪电贷
+execute the flashloan
 
 ```solidity
   function executeFlashLoan(
@@ -621,56 +575,46 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
   }
 ```
 
-分析这个方法，我们可以发现：
+- Only one pool in AAVE v2,everyone interacts with it. And than we will flashloan from aEthToken contract.
+- The flashloan logic: `Pool` use `transferFrom()` to send you the token from aEthToken contract.
+  - mode = 0: you should approve to the `pool`, so `pool` can call `transferFrom()` to catch your payback.
+  - mode = 0: Create a new debt positions
+- Not support flashloan for ETH anymore
 
-- 一次借多种资产，并且借什么还什么
-- aave只有一个池子，因此大家都在这个pool进行存取款、闪电贷等。
-- 每次都是在对应的aEthToken进行实际的借款：我们调用Pool进行闪电贷，然后去到aEthToken合约(拥有大量的Token)，然后aEthToken合约将Token借给你。
-- 实际的闪电贷逻辑：`Pool`使用`transferFrom()`将aEthToken合约的Token给你，你在回调函数中完成一系列操作：
-  - 如果mode=0：需要在闪电贷之前或者闪电贷的回调函数中`approve()`给Pool相应数量代币，然后在回调函数结束之后，Pool会`transferFrom()`你的代币进行还款
-  - 如果mode!=0：你在使用闪电贷之前，在AAVE中质押了相应的资产，并且它们是可被抵押的、价值足够，然后在回调函数结束之后，Pool会开启一个新的债务仓位
-- 不支持闪电贷ETH
-- 和V2的区别不大，主要是增加了`flashLoanSimple()`
-
-总结：
-
-- 信息：闪电贷叫`flashLoan()`和`flashLoanSimple()`, 回调函数叫`executeOperation()`。
-
-- 其他：固定手续费0.09%
-- 使用：在使用教程中，写了3个例子。使用：输入`forge test --match-path test/AAVE_v3.sol -offline -vv`进行测试。
-- 结论：在aave v3中，闪电贷的还款逻辑是数量取向
+- fee: 0.09%
+- test: `forge test --match-path test/AAVE_v3.sol -offline -vv`
 
 ## SushiSwap
 
-> 典型的Dex
+> Dex
 
 ### v2
 
-照抄uniswap V2
+The same as uniswap V2
 
-可以在[这里](https://dev.sushi.com/docs/Products/Classic%20AMM/Deployment%20Addresses)找到SushiSwap在各个链部署的地址
+[Here](https://dev.sushi.com/docs/Products/Classic%20AMM/Deployment%20Addresses) to find the all deployment contracts
 
 ### v3
 
-照抄uniswap V3
+The same as uniswap V3
 
-可以在[这里](https://dev.sushi.com/docs/Products/V3%20AMM/Periphery/Deployment%20Addresses)找到SushiSwap在各个链部署的地址
+[Here](https://dev.sushi.com/docs/Products/V3%20AMM/Periphery/Deployment%20Addresses) to find the all deployment contracts
 
 ## PancakeSwap
 
-> 典型的Dex
+> Dex
 
 ### v2
 
-照抄uniswap V2
+The same as uniswap V2
 
 ### v3
 
-照抄uniswap V3
+The same as uniswap V3
 
 ## Euler
 
-> Euler是一个模块化借贷平台，使用户能够无限制地借贷和建造
+> lending protocol
 
 ### v1
 
@@ -724,11 +668,12 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
     }
 ```
 
-目前Euler已经禁止使用闪电贷了。具体哪个区块开始不可以用，可以看测试文件。目前无法使用Euler的闪电贷，但对复现以前的PoC作为学习还是很有用的。既然已经用不了了，就不做过多的分析。
+- Currently, Euler has banned the use of flashloan. The specific block that cannot be used can be found in the test file. At present, Euler's Flash Loan cannot be used, but it is still useful for PoC as a learning tool. Since it's no longer usable, don't do too much analysis.
 
-使用指令进行测试：`forge test --match-path test/Euler_v1.sol -vvvv`
 
-- Euler无需支付手续费：`receiver.onFlashLoan(msgSender, token, amount, 0, data) == CALLBACK_SUCCESS`，可惜他已经不能用了
+- test: `forge test --match-path test/Euler_v1.sol -vvvv`
+
+- No fee: `receiver.onFlashLoan(msgSender, token, amount, 0, data) == CALLBACK_SUCCESS`
 
 ## MakerDAO
 
@@ -843,13 +788,6 @@ WE only discuss how to flashloan for DAI here while flashloan for Vat is unnorma
 
 
 ## Balancer
-
-
-
-# Summary
-
-- 在一种情况下，闪电贷使用者可以灵活偿还债务：token0或者token1的`banlanceOf()`是价值取向的，他会随着某些变量而变化，因此闪电贷使用者可以操纵这些变量，使得token0或者token1的价值变化来偿还债务。比如使用闪电贷之前池子中有10个token0，`balanceOf()`得出的结果是10，闪电贷过程中进行操纵，`balanceOf()`得出的结果是100（但仍然只有10个token0，只是价值变为100）
-- 
 
 
 

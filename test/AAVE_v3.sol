@@ -7,7 +7,6 @@ import "./interface.sol";
 contract AAVE_v3 is Test{
     using SafeERC20 for IERC20;
 
-    // 交互的池子
     IAAVE_V3_Pool public constant pool = IAAVE_V3_Pool(0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2);
     IERC20 public constant usdt = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7); 
     IERC20 public constant wbtc = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
@@ -19,7 +18,7 @@ contract AAVE_v3 is Test{
         vm.label(address(pool), "pool");
         vm.label(address(usdt), "usdt");
 
-        // 我们需要借，因此先准备一些钱作为手续费。
+        // prepare for some fee
         deal(address(usdt), address(this), 1_000_000 * 1e6);
         deal(address(wbtc), address(this), 100 * 1e8);
         emit log_named_decimal_uint("[Before] usdt Balance", usdt.balanceOf(address(this)), 6);
@@ -27,7 +26,7 @@ contract AAVE_v3 is Test{
         console.log();
     }
 
-// ==================================== 借USDT,wBtc，还USDT,wBtc ==============================================      
+// ==================================== borrow USDT,wBtc，pay back USDT,wBtc ==============================================      
 
     // function test_flashloan1() public {
         
@@ -36,8 +35,8 @@ contract AAVE_v3 is Test{
     //     assets[0] = address(usdt);
     //     assets[1] = address(wbtc);
     //     uint256[] memory amounts = new uint256[](2);
-    //     amounts[0] = usdt.balanceOf(aEthUSDT); // 将aEthUSDT中的USDT全部借走
-    //     amounts[1] = wbtc.balanceOf(aEthWbtc); // 将aEthUSDT中的USDT全部借走
+    //     amounts[0] = usdt.balanceOf(aEthUSDT); // borrow all the USDT in aEthUSDT
+    //     amounts[1] = wbtc.balanceOf(aEthWbtc); // borrow all the WBTC in aEthWbtc
     //     uint256[] memory modes = new uint256[](2);
     //     modes[0] = 0; // 0 corresponds to no debt swap
     //     modes[1] = 0; // 0 corresponds to no debt swap
@@ -72,14 +71,14 @@ contract AAVE_v3 is Test{
 
     //     // do anything u want
 
-    //     for(uint256 i = 0; i < assets.length; i++) { // 还款的方式是approve给Lendingl_Pool，因为他会transferFrom你的token进行还款   
+    //     for(uint256 i = 0; i < assets.length; i++) { // pay back flashloan + fee
     //         IERC20(assets[i]).safeIncreaseAllowance(msg.sender, amounts[i] + premiums[i]); 
     //     }
 
     //     return true;
     // }
 
-// ================================== 借USDT,WBTC，不还款，而是开一个新的债务仓位, modes=2 ==================================================   
+// ================================== borrow USDT,WBTC，not pay back but create a new debt position, modes=2 ==================================================   
 
     // function test_flashloan2() public {
     //     // Define the parameters for the flash loan
@@ -90,8 +89,9 @@ contract AAVE_v3 is Test{
     //     amounts[0] = 1 * 1e6;
     //     amounts[1] = 1 * 1e8; 
     //     uint256[] memory modes = new uint256[](2);
-    //     modes[0] = 2; // 以稳定利率设置债务
-    //     modes[1] = 2; // 以可变利率设置债务
+    //     modes[0] = 2; // stable interest rates
+    //     modes[1] = 2; // dynamic interest rates
+
 
     //     address onBehalfOf = address(this);
 
@@ -101,7 +101,7 @@ contract AAVE_v3 is Test{
     //     pool.deposit(address(usdt), 100_000 * 1e6 , address(this), 0);
     //     IERC20(wbtc).safeIncreaseAllowance(address(pool), 100 * 1e8); 
     //     pool.deposit(address(wbtc), 100 * 1e8 , address(this), 0);
-    //     // AAVE默认情况下，deposit的资产都是作为抵押品的，如果不想作为抵押品，设置为false。如果这么做，就以为着本次闪电贷会失败
+    //     // By default, AAVE's deposit assets are used as collateral. If you do not want to use them as collateral, set it to false. If we do it, this flashloan will fail
     //     // pool.setUserUseReserveAsCollateral(address(usdt), false);
     //     // pool.setUserUseReserveAsCollateral(address(wbtc), false);
 
@@ -139,7 +139,7 @@ contract AAVE_v3 is Test{
     //     return true;
     // }
 
-// ================================== 只借usdt, 还usdt ==================================================  
+// ================================== borrow usdt, pay back usdt ==================================================  
 
     function test_flashloan3() public {
         
@@ -160,15 +160,15 @@ contract AAVE_v3 is Test{
         address assets,
         uint256 amounts,
         uint256 premiums,
-        address initiator,
-        bytes calldata params
+        address,
+        bytes calldata
     ) external returns (bool){
         emit log_named_decimal_uint("[While] usdt Balance", usdt.balanceOf(address(this)), 6);
         console.log();
 
-        // do anything u want
+        // do anything you want
 
-        // 还款的方式是approve给Lendingl_Pool，因为他会transferFrom你的token进行还款   
+        // pay back flashloan + fee
         IERC20(assets).safeIncreaseAllowance(msg.sender, amounts + premiums); 
 
         return true;

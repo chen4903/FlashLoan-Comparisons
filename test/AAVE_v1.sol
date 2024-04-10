@@ -7,13 +7,13 @@ import "./interface.sol";
 contract AAVE_v1 is Test{
     using SafeMath for uint256;
 
-    // 向core借款和还款
+    // borrow from and pay back to core contract
     ILendingPoolCore public core = ILendingPoolCore(0x3dfd23A6c5E8BbcFc9581d2E864a68feb6a076d3);
-    // 借DAI
+    // flashloan for DAI
     IDAI public constant DAI = IDAI(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-    // 闪电贷需要和Lending_Pool进行交互
+    // interact with pool to call flashloan
     IAAVE_V1_LendingPool public constant Lending_Pool = IAAVE_V1_LendingPool(0x398eC7346DcD622eDc5ae82352F02bE94C62d119);
-    // 手续费手动计算需要用到的合约，为了演示需要而已
+    // just for demonstration
     ILendingPoolParametersProvider public parametersProvider = ILendingPoolParametersProvider(0xeAC99f8Fb1996AeB153E8cF0842908973a48C66F);
 
     function setUp() public {
@@ -21,16 +21,16 @@ contract AAVE_v1 is Test{
         vm.label(address(Lending_Pool), "Lending Pool");
         vm.label(address(DAI), "DAI");
 
-        // 我们需要借，因此先准备一些钱作为手续费。core合约中有大量的DAI，因此我们准备多一点DAI
+        // prepare for some fee
         deal(address(DAI), address(this), 1_000 * 1e18);
         
     }
 
-// ================================== 借DAI, 还DAI ==================================================  
+// ================================== borrow DAI, pay back DAI ==================================================  
 
     // function test_flashloan1() public {
     //     emit log_named_decimal_uint("[Before] DAI Balance", DAI.balanceOf(address(this)), 18);
-    //     // 我们将core合约中的所有DAI借出来
+    //     // borrow all the DAI in core contract
     //     uint256 core_dai_balance = DAI.balanceOf(address(core));
         
     //     Lending_Pool.flashLoan(address(this), address(DAI), core_dai_balance, "");
@@ -41,19 +41,18 @@ contract AAVE_v1 is Test{
     //     emit log_named_decimal_uint("[While] DAI Balance", DAI.balanceOf(address(this)), 18);
     //     // do anything u want
 
-    //     // 我们借的是DAI console.log("borrow DAI:", _reserve);
 
-    //     // 还款方式1：AAVE v1帮你计算好手续费，直接还款就行了
+    //     // pay back way 1: 
     //     DAI.transfer(address(core), _amount + _fee);
 
-    //     // 还款方式2：根据计算原理自己计算fee，实际使用中没必要用这种方式，这里使用是为了理解其原理
+    //     // pay back way 2: calculate by ourselves
     //     // (uint256 totalFeeBips, uint256 protocolFeeBips) = parametersProvider.getFlashLoanFeesInBips();
     //     // uint256 amountFee = _amount.mul(totalFeeBips).div(10000);
 
     //     // DAI.transfer(address(core), _amount + amountFee);
     // }
 
-// ================================== 借ETH, 还ETH ==================================================   
+// ================================== borrow ETH, pay back ETH ==================================================   
 
     function test_flashloan2() public {
         deal(address(this), 1 * 1e18);
@@ -64,7 +63,7 @@ contract AAVE_v1 is Test{
         emit log_named_decimal_uint("[After] ETH Balance", address(this).balance, 18);
     }
 
-    function executeOperation(address _reserve, uint256 _amount, uint256 _fee, bytes calldata) payable external{
+    function executeOperation(address, uint256 _amount, uint256 _fee, bytes calldata) payable external{
         emit log_named_decimal_uint("[While] ETH Balance", address(this).balance, 18);
 
         // do anything u want

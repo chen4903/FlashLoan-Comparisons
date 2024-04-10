@@ -1,2 +1,1 @@
-// 与Uniswap_V3.sol中的交互方式一模一样
-// 只需要修改相关的地址，接口名字就行了
+// The same as uniswap V3
