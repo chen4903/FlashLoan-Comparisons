@@ -4,26 +4,26 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
 
 ## comparisons
 
-|                   | Chain                                                     | FlashLoan Name                | Callback Name            | Asset kinds per FlashLoan | Pay back                                                     | Repayment indicators | Pay back obj                                           | Pay back type |
-| ----------------- | --------------------------------------------------------- | ----------------------------- | ------------------------ | ------------------------- | ------------------------------------------------------------ | -------------------- | ------------------------------------------------------ | ------------- |
-| uniswapV2         | ETH                                                       | swap()                        | uniswapV2Call()          | 1/2                       | 1/2 . transfer token                                         | Value(K)             | Interact with pool                                     | ERC20         |
-| uniswapV3         | ETH                                                       | flash()                       | uniswapV3FlashCallback() | 1/2                       | Pay back what you flashloan. transfer token                  | Amount               | Interact with pool                                     | ERC20         |
-| AAVEV1            | ETH                                                       | flashLoan()                   | executeOperation()       | 1                         | Pay back what you flashloan. transfer token                  | Amount               | Interact with pool, but borrow from core contract      | ERC20/ETH     |
-| AAVEV2            | ETH,AVAX,Polygon                                          | flashLoan()                   | executeOperation()       | 1/n                       | Pay back what you flashloan. approve token/Create a new debt positions | Amount               | Interact with pool, but borrow from aToken contract    | ERC20         |
-| AAVEV3            | ETH,AVAX,Base,Arb,Fant,Op, Polygon, Gnosis,Metis,Harmony, | flashLoan()/flashLoanSimple() | 两种executeOperation()   | 1/n                       | Pay back what you flashloan. approve token/Create a new debt positions | Amount               | Interact with pool, but borrow from aEthToken contract | ERC20         |
-| SushiSwapV2       | ETH, BSC, Base, Arb, OP, Poly.....                        | swap()                        | uniswapV2Call()          | 1/2                       | 1/2. transfer token                                          | Value(K)             | Interact with pool                                     | ERC20         |
-| SushiSwapV3       | ETH, BSC, Base, Arb, OP, Poly.....                        | flash()                       | uniswapV3FlashCallback() | 1/2                       | Pay back what you flashloan.  transfer token                 | Amount               | Interact with pool                                     | ERC20         |
-| PancakeSwapV2     | BSC                                                       | swap()                        | pancakeCall()            | 1/2                       | 1/2. transfer token                                          | Value(K)             | Interact with pool                                     | ERC20         |
-| PancakeSwapV3     | BSC                                                       | flash()                       | pancakeV3FlashCallback() | 1/2                       | Pay back what you flashloan. transfer token                  | Amount               | Interact with pool                                     | ERC20         |
-| Euler             | ETH                                                       | flashLoan()                   | onFlashLoan()            | 1                         | Pay back what you flashloan. approve token                   | Amount               | The contract itself                                    | ERC20         |
-| MakerDAO          | ETH                                                       | flashLoan()                   | onFlashLoan()            | DAI                       | Only DAI。approve DAI                                        | Amount               | The contract itself                                    | DAI           |
-| dYdX              |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
-| Nuo               |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
-| Fulcrum           |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
-| DeFi Money Market |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
-| ETHLend           |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
-| bZx               |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
-| Balancer          |                                                           |                               |                          |                           |                                                              |                      |                                                        |               |
+|                   | Chain                                                     | FlashLoan Name                | Callback Name                   | Asset kinds per FlashLoan | Pay back                                                     | Repayment indicators | Pay back obj                                           | Pay back type     |
+| ----------------- | --------------------------------------------------------- | ----------------------------- | ------------------------------- | ------------------------- | ------------------------------------------------------------ | -------------------- | ------------------------------------------------------ | ----------------- |
+| uniswapV2         | ETH                                                       | swap()                        | uniswapV2Call()                 | 1/2                       | 1/2 . transfer token                                         | Value(K)             | Interact with pool                                     | ERC20             |
+| uniswapV3         | ETH                                                       | flash()                       | uniswapV3FlashCallback()        | 1/2                       | Pay back what you flashloan. transfer token                  | Amount               | Interact with pool                                     | ERC20             |
+| AAVEV1            | ETH                                                       | flashLoan()                   | executeOperation()              | 1                         | Pay back what you flashloan. transfer token                  | Amount               | Interact with pool, but borrow from core contract      | ERC20/ETH         |
+| AAVEV2            | ETH,AVAX,Polygon                                          | flashLoan()                   | executeOperation()              | 1/n                       | Pay back what you flashloan. approve token/Create a new debt positions | Amount               | Interact with pool, but borrow from aToken contract    | ERC20             |
+| AAVEV3            | ETH,AVAX,Base,Arb,Fant,Op, Polygon, Gnosis,Metis,Harmony, | flashLoan()/flashLoanSimple() | two kinds of executeOperation() | 1/n                       | Pay back what you flashloan. approve token/Create a new debt positions | Amount               | Interact with pool, but borrow from aEthToken contract | ERC20             |
+| SushiSwapV2       | ETH, BSC, Base, Arb, OP, Poly.....                        | swap()                        | uniswapV2Call()                 | 1/2                       | 1/2. transfer token                                          | Value(K)             | Interact with pool                                     | ERC20             |
+| SushiSwapV3       | ETH, BSC, Base, Arb, OP, Poly.....                        | flash()                       | uniswapV3FlashCallback()        | 1/2                       | Pay back what you flashloan.  transfer token                 | Amount               | Interact with pool                                     | ERC20             |
+| PancakeSwapV2     | BSC                                                       | swap()                        | pancakeCall()                   | 1/2                       | 1/2. transfer token                                          | Value(K)             | Interact with pool                                     | ERC20             |
+| PancakeSwapV3     | BSC                                                       | flash()                       | pancakeV3FlashCallback()        | 1/2                       | Pay back what you flashloan. transfer token                  | Amount               | Interact with pool                                     | ERC20             |
+| Euler             | ETH                                                       | flashLoan()                   | onFlashLoan()                   | 1                         | Pay back what you flashloan. approve token                   | Amount               | The contract itself                                    | ERC20             |
+| MakerDAO          | ETH                                                       | flashLoan()                   | onFlashLoan()                   | DAI                       | Only DAI。approve DAI                                        | Amount               | The contract itself                                    | DAI               |
+| dYdX              | ETH                                                       | operate()                     | callFunction()                  | 1                         | WETH/SAI/USDC/DAI                                            | Amount               | The contract itself                                    | WETH/SAI/USDC/DAI |
+| bZx               | ETH, polygon                                              | flashBorrow()                 | any name defined by yourself    | 1                         | Pay back what you flashloan. transfer token                  | Amount               | iToken                                                 | ERC20             |
+| Balancer          |                                                           |                               |                                 |                           |                                                              |                      |                                                        |                   |
+| Nuo               |                                                           |                               |                                 |                           |                                                              |                      |                                                        |                   |
+| Fulcrum           |                                                           |                               |                                 |                           |                                                              |                      |                                                        |                   |
+| DeFi Money Market |                                                           |                               |                                 |                           |                                                              |                      |                                                        |                   |
+| ETHLend           |                                                           |                               |                                 |                           |                                                              |                      |                                                        |                   |
 
 ## Uniswap
 
@@ -767,6 +767,100 @@ WE only discuss how to flashloan for DAI here while flashloan for Vat is unnorma
 
 - We can only flashloan for: WETH, DAI, USDC, SAI 
 
+- fee: 2 wei
+
+## bZx
+
+- Flashloan entrance: https://etherscan.io/address/0xf8165b7b2b37705e4fd3e33cd9895999c3c5b529#code#L968
+
+```solidity
+    function flashBorrow(
+        uint256 borrowAmount,
+        address borrower,
+        address target,
+        string calldata signature,
+        bytes calldata data)
+        external
+        payable
+        nonReentrant
+        pausable(msg.sig)
+        settlesInterest
+        returns (bytes memory)
+    {
+        require(borrowAmount != 0, "38");
+
+        // save before balances
+        uint256 beforeEtherBalance = address(this).balance.sub(msg.value);
+        uint256 beforeAssetsBalance = _underlyingBalance()
+            .add(totalAssetBorrow());
+
+        // lock totalAssetSupply for duration of flash loan
+        _flTotalAssetSupply = beforeAssetsBalance;
+
+        // transfer assets to calling contract
+        _safeTransfer(loanTokenAddress, borrower, borrowAmount, "39");
+
+        bytes memory callData;
+        if (bytes(signature).length == 0) {
+            callData = data;
+        } else {
+            callData = abi.encodePacked(bytes4(keccak256(bytes(signature))), data);
+        }
+
+        // arbitrary call: go to the ArbitraryCaller contract
+        (bool success, bytes memory returnData) = arbitraryCaller.call.value(msg.value)(
+            abi.encodeWithSelector(
+                0xde064e0d, // sendCall(address,bytes)
+                target,
+                callData
+            )
+        );
+        require(success, "call failed");
+
+        // unlock totalAssetSupply
+        _flTotalAssetSupply = 0;
+
+        // verifies return of flash loan
+        require( // No fee
+            address(this).balance >= beforeEtherBalance &&
+            _underlyingBalance()
+                .add(totalAssetBorrow()) >= beforeAssetsBalance,
+            "40"
+        );
+
+        return returnData;
+    }
+```
+
+- https://etherscan.io/address/0x000F400e6818158D541C3EBE45FE3AA0d47372FF#code#L20
+
+```solidity
+contract ArbitraryCaller {
+    function sendCall(
+        address target,
+        bytes calldata callData)
+        external
+        payable
+    {
+        (bool success,) = target.call.value(msg.value)(callData); // Execute flashloan
+        assembly {
+            let size := returndatasize()
+            let ptr := mload(0x40)
+            returndatacopy(ptr, 0, size)
+            if eq(success, 0) { revert(ptr, size) }
+            return(ptr, size)
+        }
+    }
+}
+```
+
+- fee: no fee
+- The callback name can be defined by yourself.
+
+## Balancer
+
+
+
 ## Nuo
 
 
@@ -782,12 +876,6 @@ WE only discuss how to flashloan for DAI here while flashloan for Vat is unnorma
 ## ETHLend
 
 
-
-## bZx
-
-
-
-## Balancer
 
 
 
