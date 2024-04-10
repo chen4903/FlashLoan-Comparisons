@@ -19,7 +19,7 @@ Compare the common FlashLoan protocols, horizontally compare their differences, 
 | MakerDAO          | ETH                                                       | flashLoan()                   | onFlashLoan()                   | DAI                       | Only DAI。approve DAI                                        | Amount               | The contract itself                                    | DAI               |
 | dYdX              | ETH                                                       | operate()                     | callFunction()                  | 1                         | WETH/SAI/USDC/DAI                                            | Amount               | The contract itself                                    | WETH/SAI/USDC/DAI |
 | bZx               | ETH, polygon                                              | flashBorrow()                 | any name defined by yourself    | 1                         | Pay back what you flashloan. transfer token                  | Amount               | iToken                                                 | ERC20             |
-| Balancer          |                                                           |                               |                                 |                           |                                                              |                      |                                                        |                   |
+| Balancer          | ETH, polygon, Base, OP...                                 | flashLoan()                   | receiveFlashLoan()              | n                         | Pay back what you flashloan. transfer token                  | Amount               | The contract itself                                    | ERC20             |
 | Nuo               |                                                           |                               |                                 |                           |                                                              |                      |                                                        |                   |
 | Fulcrum           |                                                           |                               |                                 |                           |                                                              |                      |                                                        |                   |
 | DeFi Money Market |                                                           |                               |                                 |                           |                                                              |                      |                                                        |                   |
@@ -616,8 +616,6 @@ The same as uniswap V3
 
 > lending protocol
 
-### v1
-
 ```solidity
     // 0x07df2ad9878F8797B4055230bbAE5C808b8259b3
     function flashLoan(IERC3156FlashBorrower receiver, address token, uint256 amount, bytes calldata data) override external returns (bool) {
@@ -718,7 +716,6 @@ WE only discuss how to flashloan for DAI here while flashloan for Vat is unnorma
 ## dYdX
 
 > dYdX is the leading DeFi protocol developer for advanced trading. Flashloan is its hidden feature.
->
 
 ```solidity
     function operate(
@@ -769,7 +766,11 @@ WE only discuss how to flashloan for DAI here while flashloan for Vat is unnorma
 
 - fee: 2 wei
 
+- test: `forge test --match-path test/dYdX.sol -vvv`
+
 ## bZx
+
+> lending protocol
 
 - Flashloan entrance: https://etherscan.io/address/0xf8165b7b2b37705e4fd3e33cd9895999c3c5b529#code#L968
 
@@ -856,10 +857,69 @@ contract ArbitraryCaller {
 
 - fee: no fee
 - The callback name can be defined by yourself.
+- test: `forge test --match-path test/bZx.sol -vvv`
 
 ## Balancer
 
+> Dex
 
+```solidity
+    function flashLoan(
+        IFlashLoanRecipient recipient,
+        IERC20[] memory tokens,
+        uint256[] memory amounts,
+        bytes memory userData
+    ) external override nonReentrant whenNotPaused {
+        InputHelpers.ensureInputLengthMatch(tokens.length, amounts.length);
+
+        uint256[] memory feeAmounts = new uint256[](tokens.length);
+        uint256[] memory preLoanBalances = new uint256[](tokens.length);
+
+        // Used to ensure `tokens` is sorted in ascending order, which ensures token uniqueness.
+        IERC20 previousToken = IERC20(0);
+
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            IERC20 token = tokens[i];
+            uint256 amount = amounts[i];
+
+            _require(token > previousToken, token == IERC20(0) ? Errors.ZERO_TOKEN : Errors.UNSORTED_TOKENS);
+            previousToken = token;
+
+            preLoanBalances[i] = token.balanceOf(address(this));
+            feeAmounts[i] = _calculateFlashLoanFeeAmount(amount);
+
+            _require(preLoanBalances[i] >= amount, Errors.INSUFFICIENT_FLASH_LOAN_BALANCE);
+            token.safeTransfer(address(recipient), amount); // get the amount
+        }
+
+        recipient.receiveFlashLoan(tokens, amounts, feeAmounts, userData); // callback
+		
+		// check the state
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            IERC20 token = tokens[i];
+            uint256 preLoanBalance = preLoanBalances[i];
+
+            // Checking for loan repayment first (without accounting for fees) makes for simpler debugging, and results
+            // in more accurate revert reasons if the flash loan protocol fee percentage is zero.
+            uint256 postLoanBalance = token.balanceOf(address(this));
+            _require(postLoanBalance >= preLoanBalance, Errors.INVALID_POST_LOAN_BALANCE);
+
+            // No need for checked arithmetic since we know the loan was fully repaid.
+            uint256 receivedFeeAmount = postLoanBalance - preLoanBalance;
+            _require(receivedFeeAmount >= feeAmounts[i], Errors.INSUFFICIENT_FLASH_LOAN_FEE_AMOUNT);
+
+            _payFeeAmount(token, receivedFeeAmount);
+            emit FlashLoan(recipient, token, amounts[i], receivedFeeAmount);
+        }
+    }
+}
+```
+
+- fee: no fee now. (2024/04/10)
+
+- test: `forge test --match-path test/Balancer.sol -vvv`
+
+- [here](https://docs.balancer.fi/reference/contracts/deployment-addresses/mainnet.html#gauges-and-governance) to get the all deployment contract addresses
 
 ## Nuo
 
