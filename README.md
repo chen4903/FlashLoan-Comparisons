@@ -1,6 +1,6 @@
 # Brief 
 
-对比市面上常见的闪电贷协议，横向对比他们的不同，并且用Foundry做使用Demo。
+Compare the common FlashLoan protocols, horizontally compare their differences, and make a demo of their usage.
 
 ## comparisons
 
@@ -16,7 +16,7 @@
 | PancakeSwapV2     | BSC                                                       | swap()                        | pancakeCall()            | 1/2          | 1或2种。transfer代币                     | 价值(K)  | 与池子交互、借款                | ERC20     |
 | PancakeSwapV3     | BSC                                                       | flash()                       | pancakeV3FlashCallback() | 1/2          | 借什么还什么。transfer代币               | 数量     | 与池子交互、借款                | ERC20     |
 | Euler             | ETH                                                       | flashLoan()                   | onFlashLoan()            | 1            | 借什么还什么。approve代币                | 数量     | 闪电贷合约本身                  | ERC20     |
-| MakerDAO          |                                                           |                               |                          |              |                                          |          |                                 |           |
+| MakerDAO          | ETH                                                       | flashLoan()                   | onFlashLoan()            | DAI          | 只能借DAI。approve代币                   | 数量     | DssFlash合约本身                | DAI       |
 | dYdX              |                                                           |                               |                          |              |                                          |          |                                 |           |
 | Nuo               |                                                           |                               |                          |              |                                          |          |                                 |           |
 | Fulcrum           |                                                           |                               |                          |              |                                          |          |                                 |           |
@@ -732,9 +732,9 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
 
 ## MakerDAO
 
-> MakerDAO能够生成 Dai，这是世界上第一个公正的货币和领先的去中心化稳定币。
+> DAI is a stablecoin token on the Ethereum blockchain whose value is kept as close to one United States dollar as possible by decentralized parties incentivized by smart contracts to perform actions that affect the token's supply and therefore its price.
 
-我们只讨论借DAI，借款Vat的场景太少见了
+WE only discuss how to flashloan for DAI here while flashloan for Vat is unnormal
 
 ```solidity
     function flashLoan(
@@ -759,7 +759,7 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
             "DssFlash/callback-failed"
         );
 
-        dai.transferFrom(address(receiver), address(this), amount); // 因此我们要approve还款
+        dai.transferFrom(address(receiver), address(this), amount); // So we need to use `approve()` to pay back
         daiJoin.join(address(this), amount);
         vat.heal(amt);
 
@@ -767,16 +767,60 @@ V3版本的闪电贷写了两个，一个是批量闪电贷，一个是只闪电
     }
 ```
 
-- 只能借款DAI就很无语
-- 使用approve的方式还款
-- 测试：`forge test --match-path test/MakerDAO.sol -vvv`
+- We can only flashloan for DAI
+- test：`forge test --match-path test/MakerDAO.sol -vvv`
 
 ## dYdX
 
-> 针对专业交易者的去中心化交易所，与Uniswap属于不同的类型，闪电贷是其隐藏的功能
+> dYdX is the leading DeFi protocol developer for advanced trading. Flashloan is its hidden feature.
 >
 
+```solidity
+    function operate(
+        Storage.State storage state,
+        Account.Info[] memory accounts,
+        Actions.ActionArgs[] memory actions
+    ) public {
+        Events.logOperation();
 
+        _verifyInputs(accounts, actions); 
+
+        (
+            bool[] memory primaryAccounts,
+            Cache.MarketCache memory cache
+        ) = _runPreprocessing(
+            state,
+            accounts,
+            actions
+        );
+
+        _runActions( // 1. withdraw   2. go to the callback   3. deposit
+            state,
+            accounts,
+            actions,
+            cache
+        );
+
+        _verifyFinalState( // check the contract's state: it is balance in flashloan
+            state,
+            accounts,
+            primaryAccounts,
+            cache
+        );
+    }
+```
+
+- code
+
+  - Go to the callback：https://etherscan.io/address/0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e#code#L5453
+
+  - withdraw：https://etherscan.io/address/0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e#code#L4844
+
+  - call：https://etherscan.io/address/0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e#code#L4866
+
+  - deposit：https://etherscan.io/address/0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e#code#L4841
+
+- We can only flashloan for: WETH, DAI, USDC, SAI 
 
 ## Nuo
 

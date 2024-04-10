@@ -1,6 +1,8 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IDAI {
     event Approval(address indexed src, address indexed guy, uint256 wad);
@@ -148,7 +150,6 @@ interface IEulerFlashloan {
 
     function onDeferredLiquidityCheck(bytes memory encodedData) external;
 }
-
 
 interface DataTypes {
     struct EModeCategory {
@@ -967,4 +968,634 @@ interface IAAVE_V1_LendingPool {
     ) external;
 
     function swapBorrowRateMode(address _reserve) external;
+}
+
+library Actions {
+  enum ActionType {
+    Deposit, // supply tokens
+    Withdraw, // borrow tokens
+    Transfer, // transfer balance between accounts
+    Buy, // buy an amount of some token (publicly)
+    Sell, // sell an amount of some token (publicly)
+    Trade, // trade tokens against another account
+    Liquidate, // liquidate an undercollateralized or expiring account
+    Vaporize, // use excess tokens to zero-out a completely negative account
+    Call // send arbitrary data to an address
+  }
+
+  enum AccountLayout {
+    OnePrimary,
+    TwoPrimary,
+    PrimaryAndSecondary
+  }
+
+  enum MarketLayout {
+    ZeroMarkets,
+    OneMarket,
+    TwoMarkets
+  }
+
+  struct ActionArgs {
+    ActionType actionType;
+    uint accountId;
+    Types.AssetAmount amount;
+    uint primaryMarketId;
+    uint secondaryMarketId;
+    address otherAddress;
+    uint otherAccountId;
+    bytes data;
+  }
+
+  struct DepositArgs {
+    Types.AssetAmount amount;
+    Account.Info account;
+    uint market;
+    address from;
+  }
+
+  struct WithdrawArgs {
+    Types.AssetAmount amount;
+    Account.Info account;
+    uint market;
+    address to;
+  }
+
+  struct TransferArgs {
+    Types.AssetAmount amount;
+    Account.Info accountOne;
+    Account.Info accountTwo;
+    uint market;
+  }
+
+  struct BuyArgs {
+    Types.AssetAmount amount;
+    Account.Info account;
+    uint makerMarket;
+    uint takerMarket;
+    address exchangeWrapper;
+    bytes orderData;
+  }
+
+  struct SellArgs {
+    Types.AssetAmount amount;
+    Account.Info account;
+    uint takerMarket;
+    uint makerMarket;
+    address exchangeWrapper;
+    bytes orderData;
+  }
+
+  struct TradeArgs {
+    Types.AssetAmount amount;
+    Account.Info takerAccount;
+    Account.Info makerAccount;
+    uint inputMarket;
+    uint outputMarket;
+    address autoTrader;
+    bytes tradeData;
+  }
+
+  struct LiquidateArgs {
+    Types.AssetAmount amount;
+    Account.Info solidAccount;
+    Account.Info liquidAccount;
+    uint owedMarket;
+    uint heldMarket;
+  }
+
+  struct VaporizeArgs {
+    Types.AssetAmount amount;
+    Account.Info solidAccount;
+    Account.Info vaporAccount;
+    uint owedMarket;
+    uint heldMarket;
+  }
+
+  struct CallArgs {
+    Account.Info account;
+    address callee;
+    bytes data;
+  }
+}
+
+library Decimal {
+  struct D256 {
+    uint value;
+  }
+}
+
+library Interest {
+  struct Rate {
+    uint value;
+  }
+
+  struct Index {
+    uint96 borrow;
+    uint96 supply;
+    uint32 lastUpdate;
+  }
+}
+
+library Monetary {
+  struct Price {
+    uint value;
+  }
+  struct Value {
+    uint value;
+  }
+}
+
+library Storage {
+  // All information necessary for tracking a market
+  struct Market {
+    // Contract address of the associated ERC20 token
+    address token;
+    // Total aggregated supply and borrow amount of the entire market
+    Types.TotalPar totalPar;
+    // Interest index of the market
+    Interest.Index index;
+    // Contract address of the price oracle for this market
+    address priceOracle;
+    // Contract address of the interest setter for this market
+    address interestSetter;
+    // Multiplier on the marginRatio for this market
+    Decimal.D256 marginPremium;
+    // Multiplier on the liquidationSpread for this market
+    Decimal.D256 spreadPremium;
+    // Whether additional borrows are allowed for this market
+    bool isClosing;
+  }
+
+  // The global risk parameters that govern the health and security of the system
+  struct RiskParams {
+    // Required ratio of over-collateralization
+    Decimal.D256 marginRatio;
+    // Percentage penalty incurred by liquidated accounts
+    Decimal.D256 liquidationSpread;
+    // Percentage of the borrower's interest fee that gets passed to the suppliers
+    Decimal.D256 earningsRate;
+    // The minimum absolute borrow value of an account
+    // There must be sufficient incentivize to liquidate undercollateralized accounts
+    Monetary.Value minBorrowedValue;
+  }
+
+  // The maximum RiskParam values that can be set
+  struct RiskLimits {
+    uint64 marginRatioMax;
+    uint64 liquidationSpreadMax;
+    uint64 earningsRateMax;
+    uint64 marginPremiumMax;
+    uint64 spreadPremiumMax;
+    uint128 minBorrowedValueMax;
+  }
+
+  // The entire storage state of Solo
+  struct State {
+    // number of markets
+    uint numMarkets;
+    // marketId => Market
+    mapping(uint => Market) markets;
+    // owner => account number => Account
+    mapping(address => mapping(uint => Account.accStorage)) accounts;
+    // Addresses that can control other users accounts
+    mapping(address => mapping(address => bool)) operators;
+    // Addresses that can control all users accounts
+    mapping(address => bool) globalOperators;
+    // mutable risk parameters of the system
+    RiskParams riskParams;
+    // immutable risk limits of the system
+    RiskLimits riskLimits;
+  }
+}
+
+library Types {
+  enum AssetDenomination {
+    Wei, // the amount is denominated in wei
+    Par // the amount is denominated in par
+  }
+
+  enum AssetReference {
+    Delta, // the amount is given as a delta from the current value
+    Target // the amount is given as an exact number to end up at
+  }
+
+  struct AssetAmount {
+    bool sign; // true if positive
+    AssetDenomination denomination;
+    AssetReference ref;
+    uint value;
+  }
+
+  struct TotalPar {
+    uint128 borrow;
+    uint128 supply;
+  }
+
+  struct Par {
+    bool sign; // true if positive
+    uint128 value;
+  }
+
+  struct Wei {
+    bool sign; // true if positive
+    uint value;
+  }
+}
+
+interface ISoloMargin {
+  struct OperatorArg {
+    address operator;
+    bool trusted;
+  }
+
+  function ownerSetSpreadPremium(uint marketId, Decimal.D256 calldata spreadPremium)
+    external;
+
+  function getIsGlobalOperator(address operator) external view returns (bool);
+
+  function getMarketTokenAddress(uint marketId) external view returns (address);
+
+  function ownerSetInterestSetter(uint marketId, address interestSetter) external;
+
+  function getAccountValues(Account.Info calldata account)
+    external
+    view
+    returns (Monetary.Value memory, Monetary.Value memory);
+
+  function getMarketPriceOracle(uint marketId) external view returns (address);
+
+  function getMarketInterestSetter(uint marketId) external view returns (address);
+
+  function getMarketSpreadPremium(uint marketId)
+    external
+    view
+    returns (Decimal.D256 memory);
+
+  function getNumMarkets() external view returns (uint);
+
+  function ownerWithdrawUnsupportedTokens(address token, address recipient)
+    external
+    returns (uint);
+
+  function ownerSetMinBorrowedValue(Monetary.Value calldata minBorrowedValue) external;
+
+  function ownerSetLiquidationSpread(Decimal.D256 calldata spread) external;
+
+  function ownerSetEarningsRate(Decimal.D256 calldata earningsRate) external;
+
+  function getIsLocalOperator(address _owner, address operator)
+    external
+    view
+    returns (bool);
+
+  function getAccountPar(Account.Info calldata account, uint marketId)
+    external
+    view
+    returns (Types.Par memory);
+
+  function ownerSetMarginPremium(uint marketId, Decimal.D256 calldata marginPremium)
+    external;
+
+  function getMarginRatio() external view returns (Decimal.D256 memory);
+
+  function getMarketCurrentIndex(uint marketId)
+    external
+    view
+    returns (Interest.Index memory);
+
+  function getMarketIsClosing(uint marketId) external view returns (bool);
+
+  function getRiskParams() external view returns (Storage.RiskParams memory);
+
+  function getAccountBalances(Account.Info calldata account)
+    external
+    view
+    returns (
+      address[] memory,
+      Types.Par[] memory,
+      Types.Wei[] memory
+    );
+
+  function renounceOwnership() external;
+
+  function getMinBorrowedValue() external view returns (Monetary.Value memory);
+
+  function setOperators(OperatorArg[] calldata args) external;
+
+  function getMarketPrice(uint marketId) external view returns (address);
+
+  function owner() external view returns (address);
+
+  function isOwner() external view returns (bool);
+
+  function ownerWithdrawExcessTokens(uint marketId, address recipient)
+    external
+    returns (uint);
+
+  function ownerAddMarket(
+    address token,
+    address priceOracle,
+    address interestSetter,
+    Decimal.D256 calldata marginPremium,
+    Decimal.D256 calldata spreadPremium
+  ) external;
+
+  function operate(
+    Account.Info[] calldata accounts,
+    Actions.ActionArgs[] calldata actions
+  ) external;
+
+  function getMarketWithInfo(uint marketId)
+    external
+    view
+    returns (
+      Storage.Market memory,
+      Interest.Index memory,
+      Monetary.Price memory,
+      Interest.Rate memory
+    );
+
+  function ownerSetMarginRatio(Decimal.D256 calldata ratio) external;
+
+  function getLiquidationSpread() external view returns (Decimal.D256 memory);
+
+  function getAccountWei(Account.Info calldata account, uint marketId)
+    external
+    view
+    returns (Types.Wei memory);
+
+  function getMarketTotalPar(uint marketId)
+    external
+    view
+    returns (Types.TotalPar memory);
+
+  function getLiquidationSpreadForPair(uint heldMarketId, uint owedMarketId)
+    external
+    view
+    returns (Decimal.D256 memory);
+
+  function getNumExcessTokens(uint marketId) external view returns (Types.Wei memory);
+
+  function getMarketCachedIndex(uint marketId)
+    external
+    view
+    returns (Interest.Index memory);
+
+  function getAccountStatus(Account.Info calldata account)
+    external
+    view
+    returns (uint8);
+
+  function getEarningsRate() external view returns (Decimal.D256 memory);
+
+  function ownerSetPriceOracle(uint marketId, address priceOracle) external;
+
+  function getRiskLimits() external view returns (Storage.RiskLimits memory);
+
+  function getMarket(uint marketId) external view returns (Storage.Market memory);
+
+  function ownerSetIsClosing(uint marketId, bool isClosing) external;
+
+  function ownerSetGlobalOperator(address operator, bool approved) external;
+
+  function transferOwnership(address newOwner) external;
+
+  function getAdjustedAccountValues(Account.Info calldata account)
+    external
+    view
+    returns (Monetary.Value memory, Monetary.Value memory);
+
+  function getMarketMarginPremium(uint marketId)
+    external
+    view
+    returns (Decimal.D256 memory);
+
+  function getMarketInterestRate(uint marketId)
+    external
+    view
+    returns (Interest.Rate memory);
+}
+
+library Account {
+  enum Status {
+    Normal,
+    Liquid,
+    Vapor
+  }
+  struct Info {
+    address owner; // The address that owns the account
+    uint number; // A nonce that allows a single address to control many accounts
+  }
+  struct accStorage {
+    mapping(uint => Types.Par) balances; // Mapping from marketId to principal
+    Status status;
+  }
+}
+
+interface CheatCodes {
+    // This allows us to getRecordedLogs()
+    struct Log {
+        bytes32[] topics;
+        bytes data;
+    }
+    // Set block.timestamp (newTimestamp)
+
+    function warp(uint256) external;
+    // Set block.height (newHeight)
+    function roll(uint256) external;
+    // Set block.basefee (newBasefee)
+    function fee(uint256) external;
+    // Set block.coinbase (who)
+    function coinbase(address) external;
+    // Loads a storage slot from an address (who, slot)
+    function load(address, bytes32) external returns (bytes32);
+    // Stores a value to an address' storage slot, (who, slot, value)
+    function store(address, bytes32, bytes32) external;
+    // Signs data, (privateKey, digest) => (v, r, s)
+    function sign(uint256, bytes32) external returns (uint8, bytes32, bytes32);
+    // Gets address for a given private key, (privateKey) => (address)
+    function addr(uint256) external returns (address);
+    // Derive a private key from a provided mnenomic string (or mnenomic file path) at the derivation path m/44'/60'/0'/0/{index}
+    function deriveKey(string calldata, uint32) external returns (uint256);
+    // Derive a private key from a provided mnenomic string (or mnenomic file path) at the derivation path {path}{index}
+    function deriveKey(string calldata, string calldata, uint32) external returns (uint256);
+    // Performs a foreign function call via terminal, (stringInputs) => (result)
+    function ffi(string[] calldata) external returns (bytes memory);
+    // Set environment variables, (name, value)
+    function setEnv(string calldata, string calldata) external;
+    // Read environment variables, (name) => (value)
+    function envBool(string calldata) external returns (bool);
+    function envUint(string calldata) external returns (uint256);
+    function envInt(string calldata) external returns (int256);
+    function envAddress(string calldata) external returns (address);
+    function envBytes32(string calldata) external returns (bytes32);
+    function envString(string calldata) external returns (string memory);
+    function envBytes(string calldata) external returns (bytes memory);
+    // Read environment variables as arrays, (name, delim) => (value[])
+    function envBool(string calldata, string calldata) external returns (bool[] memory);
+    function envUint(string calldata, string calldata) external returns (uint256[] memory);
+    function envInt(string calldata, string calldata) external returns (int256[] memory);
+    function envAddress(string calldata, string calldata) external returns (address[] memory);
+    function envBytes32(string calldata, string calldata) external returns (bytes32[] memory);
+    function envString(string calldata, string calldata) external returns (string[] memory);
+    function envBytes(string calldata, string calldata) external returns (bytes[] memory);
+    // Sets the *next* call's msg.sender to be the input address
+    function prank(address) external;
+    // Sets all subsequent calls' msg.sender to be the input address until `stopPrank` is called
+    function startPrank(address) external;
+    // Sets the *next* call's msg.sender to be the input address, and the tx.origin to be the second input
+    function prank(address, address) external;
+    // Sets all subsequent calls' msg.sender to be the input address until `stopPrank` is called, and the tx.origin to be the second input
+    function startPrank(address, address) external;
+    // Resets subsequent calls' msg.sender to be `address(this)`
+    function stopPrank() external;
+    // Sets an address' balance, (who, newBalance)
+    function deal(address, uint256) external;
+    // Sets an address' code, (who, newCode)
+    function etch(address, bytes calldata) external;
+    // Expects an error on next call
+    function expectRevert() external;
+    function expectRevert(bytes calldata) external;
+    function expectRevert(bytes4) external;
+    // Record all storage reads and writes
+    function record() external;
+    // Gets all accessed reads and write slot from a recording session, for a given address
+    function accesses(address) external returns (bytes32[] memory reads, bytes32[] memory writes);
+    // Record all the transaction logs
+    function recordLogs() external;
+    // Gets all the recorded logs
+    function getRecordedLogs() external returns (Log[] memory);
+    // Prepare an expected log with (bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData).
+    // Call this function, then emit an event, then call a function. Internally after the call, we check if
+    // logs were emitted in the expected order with the expected topics and data (as specified by the booleans).
+    // Second form also checks supplied address against emitting contract.
+    function expectEmit(bool, bool, bool, bool) external;
+    function expectEmit(bool, bool, bool, bool, address) external;
+    // Mocks a call to an address, returning specified data.
+    // Calldata can either be strict or a partial match, e.g. if you only
+    // pass a Solidity selector to the expected calldata, then the entire Solidity
+    // function will be mocked.
+    function mockCall(address, bytes calldata, bytes calldata) external;
+    // Mocks a call to an address with a specific msg.value, returning specified data.
+    // Calldata match takes precedence over msg.value in case of ambiguity.
+    function mockCall(address, uint256, bytes calldata, bytes calldata) external;
+    // Clears all mocked calls
+    function clearMockedCalls() external;
+    // Expect a call to an address with the specified calldata.
+    // Calldata can either be strict or a partial match
+    function expectCall(address, bytes calldata) external;
+    // Expect a call to an address with the specified msg.value and calldata
+    function expectCall(address, uint256, bytes calldata) external;
+    // Gets the code from an artifact file. Takes in the relative path to the json file
+    function getCode(string calldata) external returns (bytes memory);
+    // Labels an address in call traces
+    function label(address, string calldata) external;
+    // If the condition is false, discard this run's fuzz inputs and generate new ones
+    function assume(bool) external;
+    // Set nonce for an account
+    function setNonce(address, uint64) external;
+    // Get nonce for an account
+    function getNonce(address) external returns (uint64);
+    // Set block.chainid (newChainId)
+    function chainId(uint256) external;
+    // Using the address that calls the test contract, has the next call (at this call depth only) create a transaction that can later be signed and sent onchain
+    function broadcast() external;
+    // Has the next call (at this call depth only) create a transaction with the address provided as the sender that can later be signed and sent onchain
+    function broadcast(address) external;
+    // Using the address that calls the test contract, has the all subsequent calls (at this call depth only) create transactions that can later be signed and sent onchain
+    function startBroadcast() external;
+    // Has the all subsequent calls (at this call depth only) create transactions that can later be signed and sent onchain
+    function startBroadcast(address) external;
+    // Stops collecting onchain transactions
+    function stopBroadcast() external;
+    // Reads the entire content of file to string. Path is relative to the project root. (path) => (data)
+    function readFile(string calldata) external returns (string memory);
+    // Reads next line of file to string, (path) => (line)
+    function readLine(string calldata) external returns (string memory);
+    // Writes data to file, creating a file if it does not exist, and entirely replacing its contents if it does.
+    // Path is relative to the project root. (path, data) => ()
+    function writeFile(string calldata, string calldata) external;
+    // Writes line to file, creating a file if it does not exist.
+    // Path is relative to the project root. (path, data) => ()
+    function writeLine(string calldata, string calldata) external;
+    // Closes file for reading, resetting the offset and allowing to read it from beginning with readLine.
+    // Path is relative to the project root. (path) => ()
+    function closeFile(string calldata) external;
+    // Removes file. This cheatcode will revert in the following situations, but is not limited to just these cases:
+    // - Path points to a directory.
+    // - The file doesn't exist.
+    // - The user lacks permissions to remove the file.
+    // Path is relative to the project root. (path) => ()
+    function removeFile(string calldata) external;
+
+    function toString(address) external returns (string memory);
+    function toString(bytes calldata) external returns (string memory);
+    function toString(bytes32) external returns (string memory);
+    function toString(bool) external returns (string memory);
+    function toString(uint256) external returns (string memory);
+    function toString(int256) external returns (string memory);
+    // Snapshot the current state of the evm.
+    // Returns the id of the snapshot that was created.
+    // To revert a snapshot use `revertTo`
+    function snapshot() external returns (uint256);
+    // Revert the state of the evm to a previous snapshot
+    // Takes the snapshot id to revert to.
+    // This deletes the snapshot and all snapshots taken after the given snapshot id.
+    function revertTo(uint256) external returns (bool);
+    // Creates a new fork with the given endpoint and block and returns the identifier of the fork
+    function createFork(string calldata, uint256) external returns (uint256);
+    // Creates a new fork with the given endpoint and the _latest_ block and returns the identifier of the fork
+    function createFork(string calldata) external returns (uint256);
+    // Creates _and_ also selects a new fork with the given endpoint and block and returns the identifier of the fork
+    function createSelectFork(string calldata, uint256) external returns (uint256);
+    // Creates _and_ also selects a new fork with the given endpoint and the latest block and returns the identifier of the fork
+    function createSelectFork(string calldata) external returns (uint256);
+    // Takes a fork identifier created by `createFork` and sets the corresponding forked state as active.
+    function selectFork(uint256) external;
+    /// Returns the currently active fork
+    /// Reverts if no fork is currently active
+    function activeFork() external returns (uint256);
+    // Updates the currently active fork to given block number
+    // This is similar to `roll` but for the currently active fork
+    function rollFork(uint256) external;
+    // Updates the given fork to given block number
+    function rollFork(uint256 forkId, uint256 blockNumber) external;
+    /// Returns the RPC url for the given alias
+    function rpcUrl(string calldata) external returns (string memory);
+    /// Returns all rpc urls and their aliases `[alias, url][]`
+    function rpcUrls() external returns (string[2][] memory);
+    function makePersistent(address account) external;
+}
+
+interface IWETH {
+    function name() external view returns (string memory);
+
+    function approve(address guy, uint256 wad) external returns (bool);
+
+    function totalSupply() external view returns (uint256);
+
+    function transferFrom(
+        address src,
+        address dst,
+        uint256 wad
+    ) external returns (bool);
+
+    function withdraw(uint256 wad) external;
+
+    function decimals() external view returns (uint8);
+
+    function balanceOf(address) external view returns (uint256);
+
+    function symbol() external view returns (string memory);
+
+    function transfer(address dst, uint256 wad) external returns (bool);
+
+    function deposit() external payable;
+
+    function allowance(address, address) external view returns (uint256);
+
+    event Approval(address indexed src, address indexed guy, uint256 wad);
+    event Transfer(address indexed src, address indexed dst, uint256 wad);
+    event Deposit(address indexed dst, uint256 wad);
+    event Withdrawal(address indexed src, uint256 wad);
 }

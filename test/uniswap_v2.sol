@@ -3,7 +3,6 @@ pragma solidity ^0.8.9;
 
 import "forge-std/Test.sol";
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interface.sol";
 
 contract Uniswap_V2 is Test{

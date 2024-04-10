@@ -15,7 +15,6 @@ contract MakerDAO is Test{
 
         // We should prepare for some DAI to pay the fee
         deal(address(dai), address(this), 1 * 1e18);
-        
     }
 
     function test_flashloan() public {
